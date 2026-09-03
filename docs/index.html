@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>heartpost — レンタルサーバーと VPS の死活監視</title>
+<meta name="description" content="heartpost はレンタルサーバー（共有ホスティング）と小規模な VPS の死活監視だけを担う小さな OSS。cron から動く agent が署名付きの heartbeat を送り、自前の monitor が届かなくなったら知らせる。">
+<link rel="canonical" href="https://ishizakahiroshi.github.io/heartpost/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f7f3ea; --ink:#241f1a; --ink-soft:#837a6c; --line:rgba(36,31,26,0.12);
+    --accent:#ff7a3d; --card:#fffdf8; --ok:#2e7d4f; --warn:#b8860b; --bad:#b3261e;
+    --display:'Baloo 2','Zen Maru Gothic',system-ui,cursive;
+    --body:'Zen Maru Gothic',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:var(--body);color:var(--ink);background:var(--bg);line-height:1.7;
+       text-wrap:pretty;font-size:16px}
+  .wrap{max-width:min(1080px,92vw);margin:0 auto;padding:48px 0 80px}
+  h1{font-family:var(--display);font-weight:800;font-size:2rem;margin:0 0 12px;letter-spacing:-0.01em}
+  h2{font-family:var(--display);font-weight:700;font-size:1.4rem;margin:48px 0 16px;
+     padding-bottom:8px;border-bottom:2px solid var(--ink)}
+  h3{font-family:var(--display);font-weight:700;font-size:1.1rem;margin:28px 0 10px}
+  p,li{font-size:1rem}
+  a{color:var(--accent);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
+  .card{background:var(--card);border:2px solid var(--ink);border-radius:18px;
+        padding:22px 24px;box-shadow:4px 5px 0 var(--line);margin:16px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;background:#fff;
+        border:2px solid var(--ink);border-radius:12px;overflow:hidden}
+  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);font-size:0.94rem}
+  th{background:#fffdf8;font-family:var(--display);font-weight:700}
+  tr:last-child td{border-bottom:0}
+  .tag{display:inline-block;padding:2px 10px;border-radius:999px;
+       font-family:var(--display);font-weight:700;font-size:0.78rem;
+       border:2px solid var(--ink);background:#fff;color:var(--ink)}
+  .tag-ok{background:var(--ok);color:#fff} .tag-warn{background:var(--warn);color:#fff}
+  .tag-bad{background:var(--bad);color:#fff} .tag-accent{background:var(--accent);color:#fff}
+  .system-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;
+                border-radius:999px;border:2px solid var(--ink);background:var(--card);
+                font-family:var(--display);font-weight:700;font-size:0.86rem}
+  .system-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+  .meta{color:var(--ink-soft);font-size:0.88rem}
+  .lede{font-size:1.12rem;max-width:70ch}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px;margin:16px 0}
+  .grid2 .card{margin:0}
+  .kv{margin:0}
+  .kv dt{font-family:var(--display);font-weight:700;margin-top:14px}
+  .kv dt:first-child{margin-top:0}
+  .kv dd{margin:2px 0 0}
+  code{font-family:Consolas,ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.9em;
+       background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+  pre{background:#fff;border:2px solid var(--ink);border-radius:12px;padding:16px 18px;
+      overflow-x:auto;font-family:Consolas,ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.88rem;line-height:1.6}
+  pre code{background:none;border:0;padding:0;font-size:1em}
+  .steps{counter-reset:step;list-style:none;padding:0;margin:16px 0}
+  .steps>li{counter-increment:step;background:var(--card);border:2px solid var(--ink);
+            border-radius:18px;padding:20px 24px 20px 68px;position:relative;
+            box-shadow:4px 5px 0 var(--line);margin:0 0 14px}
+  .steps>li::before{content:counter(step);position:absolute;left:20px;top:18px;
+            width:32px;height:32px;border-radius:50%;border:2px solid var(--ink);
+            background:var(--accent);color:#fff;font-family:var(--display);font-weight:800;
+            display:grid;place-items:center;font-size:1rem}
+  .steps h3{margin:0 0 6px}
+  figure{margin:20px 0}
+  figcaption{color:var(--ink-soft);font-size:0.88rem;margin-top:8px}
+  .diagram{background:#fff;border:2px solid var(--ink);border-radius:18px;padding:20px;
+           box-shadow:4px 5px 0 var(--line)}
+  .diagram svg{width:100%;height:auto;display:block}
+  .note{border:2px solid var(--ink);border-radius:18px;background:#fff;padding:18px 22px;margin:20px 0}
+  .note b{font-family:var(--display)}
+  ul.tight{margin:8px 0;padding-left:22px}
+  ul.tight li{margin:4px 0}
+  .foot{margin-top:56px;padding-top:20px;border-top:2px solid var(--ink);color:var(--ink-soft);font-size:0.9rem}
+  /* 狭い画面では表が min-content 未満に縮まず、文書全体を横へ押し広げて本文が切れる。
+     表だけを内側でスクロールさせて、本文の折り返しを守る。 */
+  @media (max-width:720px){
+    table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .wrap{padding:32px 0 64px}
+    h1{font-size:1.6rem}
+    .steps>li{padding:18px 18px 18px 58px}
+    .steps>li::before{left:14px}
+  }
+  @media print{ body{background:#fff} .card,.steps>li,.diagram,.note{box-shadow:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="system-badge"><span class="dot"></span> 対象: <b>heartpost</b>（OSS・Apache-2.0）</div>
+
+  <h1 style="margin-top:16px">heartpost — サーバーが黙ったことに気づくための道具</h1>
+  <p class="meta">
+    2026-09-03 時点の実装にもとづく &nbsp;·&nbsp; <span class="tag tag-accent">開発中</span>
+    <span class="tag tag-warn">未リリース</span>
+    &nbsp;·&nbsp; <a href="https://github.com/ishizakahiroshi/heartpost">github.com/ishizakahiroshi/heartpost</a>
+  </p>
+
+  <p class="lede">
+    レンタルサーバー（共有ホスティング）と小規模な VPS の<b>死活監視</b>だけを担う小さな道具。
+    各サーバーで cron から動く小さなプログラムが基本的な状態を集めて、自分で建てた受信サーバーへ送る。
+    受信側はそれを保存して、<b>届かなくなったら知らせる</b>。最後の一点が本体で、監視項目の数を競う道具ではない。
+  </p>
+
+  <h2>なぜ要るのか</h2>
+
+  <p>
+    サーバーが落ちたことに、たいてい人は自分では気づかない。気づくのは「サイトが見られない」と
+    誰かに言われたときで、そこまでの間ずっと止まっている。監視を入れていない理由も毎回同じで、
+    <b>入れるほうが面倒だから</b>である。
+  </p>
+
+  <p>
+    とくにレンタルサーバーは条件が厳しい。root 権限が無い。パッケージを入れられない。常駐プロセスを
+    置けない。監視エージェントを入れる前提の道具は、この時点でほぼ全部使えない。
+    heartpost は「cron から 1 回だけ動いて終わる 1 個のファイル」という形にして、この制約を最初から前提にしている。
+  </p>
+
+  <div class="note">
+    <p style="margin:0">
+      <b>設計の中心にあるのは「来なかったこと」の検知。</b>
+      値が異常になったことを知らせる仕組みは山ほどあるが、
+      サーバーが完全に止まると<b>異常値すら送られてこない</b>。何も届かない状態は、
+      「すべて健康で静か」と見た目が区別できない。そこを分けるのがこの道具の役目。
+    </p>
+  </div>
+
+  <h2>何が嬉しいか</h2>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>導入がサーバー 1 台につき数分</h3>
+      <p style="margin:0">
+        置くのは実行ファイル 1 個と設定ファイル 1 個。あとは crontab に 1 行足すだけ。
+        root もパッケージ管理も要らない。付属のスクリプトが SSH 経由でこの一連をやる。
+      </p>
+    </div>
+    <div class="card">
+      <h3>1 回鳴って、直ったらもう 1 回だけ鳴る</h3>
+      <p style="margin:0">
+        止まっている間ずっと鳴り続けない。状態が変わったときだけ通知する。
+        復帰も 1 回知らせる。鳴りっぱなしの監視は、結局みんな通知を切る。
+      </p>
+    </div>
+    <div class="card">
+      <h3>1 回の取りこぼしで騒がない</h3>
+      <p style="margin:0">
+        既定では実行間隔の 3 倍だまってから「欠報」と判断する。
+        ホストが一時的に重かった、cron がバックアップと重なった、程度で起こされない。
+      </p>
+    </div>
+    <div class="card">
+      <h3>置き場所が自分の手の内にある</h3>
+      <p style="margin:0">
+        受信側も自分のサーバーに建てる。外部サービスに各サーバーの状態を預けない。
+        アカウントの発行も課金も、増えていく設定画面も無い。
+      </p>
+    </div>
+    <div class="card">
+      <h3>覚えることが少ない</h3>
+      <p style="margin:0">
+        画面は 1 枚。並ぶのはサーバー名・状態・最終受信・経過時間・ディスク使用率・load だけ。
+        ダッシュボードを設計する作業が発生しない。
+      </p>
+    </div>
+    <div class="card">
+      <h3>受信側にデータベースが要らない</h3>
+      <p style="margin:0">
+        受け取ったものは 1 行 1 レポートのテキストとしてディスクに追記し、指定した日数で消す。
+        DB の構築・バックアップ・バージョン上げが増えない。
+      </p>
+    </div>
+  </div>
+
+  <h3>入れなかった場合との違い</h3>
+
+  <table>
+    <thead>
+      <tr><th>場面</th><th>入れていない今</th><th>入れたあと</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>サーバーが停止した</td>
+        <td>誰かに指摘されるまで分からない。指摘は数時間後のことも翌日のこともある</td>
+        <td>実行間隔の 3 倍（既定 15 分）で通知が 1 通届く</td>
+      </tr>
+      <tr>
+        <td>ディスクが埋まりかけている</td>
+        <td>埋まって書き込みが失敗してから気づく</td>
+        <td>一覧で使用率が並ぶので、埋まる前に目に入る</td>
+      </tr>
+      <tr>
+        <td>cron が静かに止まっていた</td>
+        <td>成果物が出ていないことで後から気づく</td>
+        <td>レポート自体が来なくなるので欠報として出る</td>
+      </tr>
+      <tr>
+        <td>証明書の期限が近い（VPS 側）</td>
+        <td>期限切れで初めて分かる</td>
+        <td>残り日数と更新タイマーの状態が一覧に出る</td>
+      </tr>
+      <tr>
+        <td>サーバーが 10 台に増えた</td>
+        <td>どれを見て回ればいいか分からなくなる</td>
+        <td>1 枚の表に全部並び、欠報が上に来る</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>仕組み</h2>
+
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 900 260" role="img" aria-label="agent が monitor へ署名付きレポートを送り、monitor が保存して webhook へ通知する構成図">
+        <defs>
+          <marker id="ar" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+            <path d="M0,0 L10,4 L0,8 z" fill="#241f1a"/>
+          </marker>
+        </defs>
+        <!-- agents -->
+        <rect x="10" y="20" width="230" height="62" rx="12" fill="#fffdf8" stroke="#241f1a" stroke-width="2"/>
+        <text x="26" y="46" font-family="'Baloo 2',sans-serif" font-weight="700" font-size="15" fill="#241f1a">レンタルサーバー A</text>
+        <text x="26" y="68" font-size="12.5" fill="#837a6c">cron → heartpost-agent（1 回で終了）</text>
+
+        <rect x="10" y="99" width="230" height="62" rx="12" fill="#fffdf8" stroke="#241f1a" stroke-width="2"/>
+        <text x="26" y="125" font-family="'Baloo 2',sans-serif" font-weight="700" font-size="15" fill="#241f1a">レンタルサーバー B</text>
+        <text x="26" y="147" font-size="12.5" fill="#837a6c">cron → heartpost-agent</text>
+
+        <rect x="10" y="178" width="230" height="62" rx="12" fill="#fffdf8" stroke="#241f1a" stroke-width="2"/>
+        <text x="26" y="204" font-family="'Baloo 2',sans-serif" font-weight="700" font-size="15" fill="#241f1a">VPS（monitor と同居可）</text>
+        <text x="26" y="226" font-size="12.5" fill="#837a6c">systemd timer → heartpost-agent</text>
+
+        <!-- arrows -->
+        <line x1="244" y1="51" x2="384" y2="112" stroke="#241f1a" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="244" y1="130" x2="384" y2="130" stroke="#241f1a" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="244" y1="209" x2="384" y2="148" stroke="#241f1a" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="392" y="66" font-size="12" fill="#ff7a3d" font-weight="700">署名付き JSON を POST</text>
+
+        <!-- monitor -->
+        <rect x="390" y="80" width="230" height="100" rx="12" fill="#fffdf8" stroke="#241f1a" stroke-width="2"/>
+        <text x="406" y="107" font-family="'Baloo 2',sans-serif" font-weight="700" font-size="15" fill="#241f1a">heartpost-monitor</text>
+        <text x="406" y="129" font-size="12.5" fill="#837a6c">署名を検証して保存</text>
+        <text x="406" y="149" font-size="12.5" fill="#837a6c">来ない相手を数える</text>
+        <text x="406" y="169" font-size="12.5" fill="#837a6c">一覧画面を出す</text>
+
+        <!-- outputs -->
+        <line x1="624" y1="108" x2="714" y2="70" stroke="#241f1a" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="624" y1="152" x2="714" y2="190" stroke="#241f1a" stroke-width="2" marker-end="url(#ar)"/>
+
+        <rect x="720" y="34" width="170" height="62" rx="12" fill="#fffdf8" stroke="#241f1a" stroke-width="2"/>
+        <text x="736" y="60" font-family="'Baloo 2',sans-serif" font-weight="700" font-size="15" fill="#241f1a">webhook</text>
+        <text x="736" y="82" font-size="12.5" fill="#837a6c">欠報 / 復帰を 1 通ずつ</text>
+
+        <rect x="720" y="158" width="170" height="62" rx="12" fill="#fffdf8" stroke="#241f1a" stroke-width="2"/>
+        <text x="736" y="184" font-family="'Baloo 2',sans-serif" font-weight="700" font-size="15" fill="#241f1a">一覧画面</text>
+        <text x="736" y="206" font-size="12.5" fill="#837a6c">ブラウザで 1 枚</text>
+      </svg>
+    </div>
+    <figcaption>
+      送る側は常駐しない。受信側だけが常駐する。データベースも外部サービスも間に入らない。
+    </figcaption>
+  </figure>
+
+  <h3>送信は署名付き</h3>
+  <p>
+    レポートには共有鍵で計算した署名（HMAC-SHA256）を付ける。受信側は署名と時刻を検証し、
+    鍵が違うもの・本文が書き換えられたもの・古すぎる時刻のものを受け付けない。
+    共有ホスティングは他人と同じホストに同居するので、鍵ファイルの権限が緩いと agent は起動を拒否する。
+  </p>
+
+  <h2>集まる情報</h2>
+
+  <p>
+    agent は動く場所に合わせて 2 通りの構成を持つ。どちらも<b>読むだけ</b>で、サーバーへ書き込む処理は持たない。
+    項目は 1 つずつ設定で切れる。
+  </p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>レンタルサーバー向け（9 項目）</h3>
+      <table style="margin:8px 0 0">
+        <tbody>
+          <tr><td><code>host</code></td><td>ホスト名・OS</td></tr>
+          <tr><td><code>loadavg</code></td><td>負荷平均 1 / 5 / 15 分</td></tr>
+          <tr><td><code>memory</code></td><td>物理メモリ容量</td></tr>
+          <tr><td><code>disk</code></td><td>マウント別の使用状況</td></tr>
+          <tr><td><code>cron</code></td><td>登録されている cron 一覧</td></tr>
+          <tr><td><code>process</code></td><td>自分から見えるプロセス</td></tr>
+          <tr><td><code>cpu</code></td><td>CPU 使用率</td></tr>
+          <tr><td><code>network</code></td><td>累積の送受信バイト数</td></tr>
+          <tr><td><code>apache_log</code></td><td>当日のアクセス数と直近のアクセス</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Linux VPS 向け（8 項目）</h3>
+      <table style="margin:8px 0 0">
+        <tbody>
+          <tr><td><code>system</code></td><td>CPU・メモリ・ディスク・稼働時間</td></tr>
+          <tr><td><code>process</code></td><td>プロセス状況</td></tr>
+          <tr><td><code>cron</code></td><td>cron の登録内容</td></tr>
+          <tr><td><code>services</code></td><td>指定した systemd ユニットの状態</td></tr>
+          <tr><td><code>ssl</code></td><td>証明書の残り日数と更新タイマー</td></tr>
+          <tr><td><code>ssh</code></td><td>認証ログの直近の出来事</td></tr>
+          <tr><td><code>nginx</code></td><td>アクセスログの直近の出来事</td></tr>
+          <tr><td><code>updates</code></td><td>適用できる更新の数</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="meta">
+    監視したいサービスは systemd のユニット名を並べて指定する。特定の製品に紐づく項目は持たない。
+    使っていない人にとって常に空の欄になるため。
+  </p>
+
+  <h2>使い方</h2>
+
+  <ol class="steps">
+    <li>
+      <h3>受信側を 1 台建てる</h3>
+      <p style="margin:0 0 10px">
+        自分の VPS に実行ファイルと設定を置いて起動する。通知先（webhook）と、
+        agent ごとの共有鍵を書く。保存先のディレクトリを 1 つ決める。データベースは要らない。
+      </p>
+<pre><code>heartpost-monitor -config /etc/heartpost/monitor.toml</code></pre>
+    </li>
+    <li>
+      <h3>監視したいサーバーへ agent を置く</h3>
+      <p style="margin:0 0 10px">
+        付属スクリプトが SSH で実行ファイルと設定を配り、crontab に 1 行足す。
+        既定は 5 分間隔。root 権限は要らない。
+      </p>
+<pre><code>*/5 * * * * $HOME/heartpost/bin/heartpost-agent --config $HOME/heartpost/etc/agent.toml</code></pre>
+    </li>
+    <li>
+      <h3>画面を開いて、あとは放っておく</h3>
+      <p style="margin:0">
+        ブラウザで一覧を開くと全台が並ぶ。欠報が出たら上に来て、同時に webhook が 1 通飛ぶ。
+        普段は見に行かなくてよい。見に行かなくても済むようにするのがこの道具の目的である。
+      </p>
+    </li>
+  </ol>
+
+  <div class="note">
+    <p style="margin:0 0 8px"><b>実行間隔と欠報のしきい値は必ず一緒に変える。</b></p>
+    <p style="margin:0">
+      間隔は agent 側の cron 行、しきい値は monitor 側の設定にある。<b>別のマシンの別のファイル</b>にあるので、
+      片方だけ変えると「すぐ鳴りすぎる」か「いつまでも鳴らない」のどちらかになる。
+      既定はしきい値が間隔の 3 倍。
+    </p>
+  </div>
+
+  <div class="note">
+    <p style="margin:0 0 8px"><b>この monitor 自身は、別の手段で外から見る。</b></p>
+    <p style="margin:0">
+      monitor が落ちていると欠報に気づけない。落ちた monitor の見た目は「全台が健康で静か」と同じである。
+      受信側には認証なしで応答する健康確認用の入口（<code>/healthz</code>）を用意してあるので、
+      外部の死活監視サービスか別ホストの cron から、そこを見ておく。
+      これは後で直せる穴ではなく、1 点にまとめる監視が構造的に持つ穴なので、
+      隠さずに前提として扱う。
+    </p>
+  </div>
+
+  <h2>やらないこと</h2>
+
+  <p>
+    小さく保つために切り捨てている範囲。ここを求める場合は Prometheus・Zabbix・商用の監視サービスのほうが合う。
+  </p>
+
+  <ul class="tight">
+    <li>アプリケーション性能の追跡や分散トレーシング</li>
+    <li>ログの集約基盤・全文検索</li>
+    <li>時系列データベースとグラフ、クエリ言語</li>
+    <li>通知先の振り分け条件を組み立てる仕組み（webhook を 1 本出すところまで）</li>
+    <li>サービスとしての提供（受信側は利用者が自分で建てる）</li>
+    <li>agent からのサーバー操作（再起動・デプロイ・設定変更）。集めて送るだけで、書き込みはしない</li>
+  </ul>
+
+  <h2>いまの状態</h2>
+
+  <table>
+    <thead><tr><th>項目</th><th>状態</th><th>補足</th></tr></thead>
+    <tbody>
+      <tr><td>agent（レンタル / VPS 両対応）</td><td><span class="tag tag-ok">実装済み</span></td><td>17 項目の収集・署名送信・二重起動防止・鍵権限の強制</td></tr>
+      <tr><td>受信 monitor</td><td><span class="tag tag-ok">実装済み</span></td><td>署名検証・保存と保持期間・欠報判定・webhook 通知・一覧画面</td></tr>
+      <tr><td>ビルド対象</td><td><span class="tag tag-ok">確認済み</span></td><td>Linux（amd64 / arm64）と FreeBSD（amd64）</td></tr>
+      <tr><td>配布（リリース版の実行ファイル）</td><td><span class="tag tag-warn">未着手</span></td><td>次の作業。現状はソースから各自ビルド</td></tr>
+      <tr><td>systemd の設定ファイル</td><td><span class="tag tag-warn">実機未検証</span></td><td>同梱済みだが Linux 実機での確認が残っている</td></tr>
+      <tr><td>メール通知</td><td><span class="tag">見送り</span></td><td>webhook のみ。必要になった時点で判断する</td></tr>
+    </tbody>
+  </table>
+
+  <p class="meta">
+    ライセンスは Apache License 2.0。ソースは
+    <a href="https://github.com/ishizakahiroshi/heartpost">github.com/ishizakahiroshi/heartpost</a>。
+  </p>
+
+  <div class="foot">
+    heartpost 紹介資料 — 2026-09-03 時点の実装にもとづく。<br>
+    未リリースのため、記載の設定名や既定値は変わる可能性がある。
+  </div>
+
+</div>
+</body>
+</html>
