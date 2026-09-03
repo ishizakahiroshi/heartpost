@@ -1,0 +1,64 @@
+# heartpost-monitor 設定サンプル
+#
+#   heartpost-monitor -config /path/to/monitor.toml
+#
+# このファイルは共有鍵を持つので 600 で置くこと。値はすべて置き換えて使う。
+
+[server]
+# 待受アドレス。リバースプロキシの背後に置くならループバックに閉じる。
+listen = "127.0.0.1:8770"
+# JSONL と state.json を置くディレクトリ。外部 DB は要らない。
+data_dir = "/var/lib/heartpost"
+# 画面の時刻表示に使うタイムゾーン。空なら実行ホストのローカル時刻。
+timezone = "Asia/Tokyo"
+
+[auth]
+# 一覧画面の Basic 認証。user を空にすると認証なしで公開される。
+user = "monitor"
+password = "REPLACE_WITH_A_LONG_RANDOM_PASSWORD"
+
+[receiver]
+# JSONL をこの日数だけ残し、過ぎたファイルを削除する。
+retention_days = 90
+# 1 レポートの上限（バイト）。0 なら 1MB。
+max_body_bytes = 1048576
+# X-Agent-Timestamp に許す前後のずれ。リプレイをこの幅の外で弾く。
+timestamp_skew = "120s"
+# 送信元 IP の allowlist。空（または行ごと削除）なら制限しない。
+# 単一 IP と CIDR を混ぜて書ける。
+allowed_ips = ["203.0.113.10", "198.51.100.0/24"]
+# リバースプロキシの背後に置く場合だけ true。TCP 接続元がループバックのときに限り
+# X-Forwarded-For の最終ホップを送信元とみなす。直接 listen するなら false のまま。
+trust_forwarded_for = false
+
+[liveness]
+# agent 側 cron の実行間隔。既定のしきい値はこの 3 倍になる。
+agent_interval = "5m"
+# しきい値を直接指定したい場合だけ書く（書かなければ agent_interval の 3 倍）。
+# down_threshold = "15m"
+# 死活判定を回す間隔。
+check_interval = "30s"
+
+[notify]
+# 欠報と復帰を JSON で 1 本 POST する先。状態が変わったときだけ送られる。
+webhook_url = "https://hooks.example.net/heartpost"
+timeout = "10s"
+# 認証トークン等を足したい場合。
+# [notify.headers]
+# Authorization = "Bearer REPLACE_WITH_TOKEN"
+#
+# 通知先を置かない場合は webhook_url を消したうえで下行を有効にする。
+# 明示しないと起動しない（黙って何も知らせない monitor になるのを防ぐため）。
+# disabled = true
+
+# agent ごとの共有鍵。agent 側 agent_secrets.toml と同じ値にする。
+# agent id は英数字とハイフンのみ・64 文字以内。
+[agent_keys]
+web-01 = "REPLACE_WITH_SHARED_SECRET_FOR_WEB_01"
+web-02 = "REPLACE_WITH_SHARED_SECRET_FOR_WEB_02"
+db-01 = "REPLACE_WITH_SHARED_SECRET_FOR_DB_01"
+
+# agent ごとの上書き（任意）。cron の間隔が違う agent が混ざる場合に使う。
+[agents.db-01]
+label = "db-01 (nightly cron)"
+down_threshold = "26h"

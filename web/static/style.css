@@ -1,0 +1,169 @@
+/* heartpost monitor - 一覧画面 1 枚分のスタイル。外部フォント・外部 CSS を読まない。 */
+
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --fg: #1c2024;
+  --muted: #666e78;
+  --card: #ffffff;
+  --border: #d8dde3;
+  --down-bg: #fdecec;
+  --down-fg: #a1201c;
+  --down-border: #f0b6b3;
+  --up-fg: #1c6b3c;
+  --up-bg: #e7f5ec;
+  --unknown-fg: #6b5a1c;
+  --unknown-bg: #fbf4de;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171a;
+    --fg: #e6e9ec;
+    --muted: #9aa4ae;
+    --card: #1c2024;
+    --border: #333a41;
+    --down-bg: #3a1f1e;
+    --down-fg: #ffb4ae;
+    --down-border: #6b3230;
+    --up-fg: #8fdcaa;
+    --up-bg: #1b2f22;
+    --unknown-fg: #e2cd8a;
+    --unknown-bg: #322c18;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 24px 20px 48px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", Meiryo, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.summary {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.summary .alert {
+  color: var(--down-fg);
+  font-weight: 700;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+th,
+td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tr.is-down {
+  background: var(--down-bg);
+}
+
+tr.is-down td {
+  border-bottom-color: var(--down-border);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badge-down {
+  background: var(--down-bg);
+  color: var(--down-fg);
+  border: 1px solid var(--down-border);
+}
+
+.badge-up {
+  background: var(--up-bg);
+  color: var(--up-fg);
+}
+
+.badge-unknown {
+  background: var(--unknown-bg);
+  color: var(--unknown-fg);
+}
+
+.name {
+  font-weight: 600;
+}
+
+.agent-id {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+footer {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}

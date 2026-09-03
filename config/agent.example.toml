@@ -1,0 +1,78 @@
+# heartpost agent — example configuration
+#
+# Copy this to the server as ~/heartpost/etc/agent.toml and edit it.
+# The agent runs once per cron tick, collects, posts, and exits. It never writes
+# to the server it watches, and it does not need root.
+#
+# The API key does NOT belong in this file. Put it in agent_secrets.toml next to
+# this one (mode 600). The agent refuses to start if that file is readable by
+# anyone else, because shared hosting puts other people's accounts on the same box.
+#
+# <user> below is a placeholder: replace it with the account name on the host.
+# Paths are used as written — nothing expands ~ or shell variables.
+
+[agent]
+# Must be unique across every server reporting to the same monitor. The monitor
+# identifies a machine by this, so changing it later looks like a new server
+# appearing and the old one going silent.
+id = "web01"
+# Free text, shown in the monitor's list.
+label = "example.net shared hosting"
+# "rental" for shared hosting, "vps" for a Linux VPS.
+type = "rental"
+
+[monitor]
+# Base URL of your monitor. Leave empty to run without sending anything: the
+# agent collects and writes the payload to the log instead (useful for a first
+# run, and for checking what a host actually reports).
+endpoint = "https://monitor.example.net"
+# Receiving path. Only change this if you put the monitor behind a prefix.
+path = "/api/agent/report"
+# api_key lives in agent_secrets.toml — do not put it here.
+# Seconds to wait for one POST.
+http_timeout_sec = 10
+# Extra attempts after the first failure. 1 is usually right: cron comes back in
+# five minutes anyway, and a shared host should not hammer a monitor that is down.
+retry_count = 1
+
+[runtime]
+# Leave empty to write to stderr. On shared hosting that usually means cron
+# emails you every run, so point it at a file.
+log_file = "/home/<user>/heartpost/var/agent.log"
+# The log is truncated (not rotated into generations) once it passes this size.
+# Home directories on shared hosting are small; the monitoring tool must not be
+# what fills the disk.
+log_max_bytes = 5242880
+# Whole-run budget. Must stay well under the cron interval so two runs never
+# overlap. If a run does overrun, the next one exits on the lock rather than
+# collecting twice.
+timeout_sec = 30
+
+[collectors.jobs]
+# Anything not listed here stays enabled, so new collectors work without editing
+# this file. Set one to false to skip it — for example apache_log on a host with
+# no web logs you can read.
+host = true
+loadavg = true
+memory = true
+disk = true
+cron = true
+process = true
+cpu = true
+network = true
+apache_log = true
+
+[paths]
+# Used by the collectors to find what they read. Set them to the real paths on
+# this host; there is no reliable default across hosting providers.
+home_dir = "/home/<user>"
+www_dir = "/home/<user>/www"
+log_dir = "/home/<user>/log"
+
+# Suggested cron line (every 5 minutes):
+#
+#   */5 * * * * /home/<user>/heartpost/bin/heartpost-agent --config /home/<user>/heartpost/etc/agent.toml >/dev/null 2>&1
+#
+# Keep the interval and the monitor's silence threshold in step. The monitor
+# should wait for more than one missed run before it alerts, or a single slow
+# tick becomes a false alarm.

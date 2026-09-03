@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>heartpost monitor</title>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>heartpost monitor</h1>
+        <p class="summary">
+          {{ if gt .DownCount 0 }}<span class="alert">欠報 {{ .DownCount }} 件</span> /
+          {{ end }}監視対象 {{ .TotalCount }} 台 &middot; {{ .GeneratedAt }} 時点
+        </p>
+      </header>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">サーバー</th>
+              <th scope="col">状態</th>
+              <th scope="col">最終受信</th>
+              <th scope="col">経過</th>
+              <th scope="col">ルートディスク</th>
+              <th scope="col">load (1/5/15)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ range .Rows }}
+            <tr {{ if .Down }}class="is-down"{{ end }}>
+              <td>
+                <span class="name">{{ .Label }}</span>
+                <span class="agent-id">{{ .AgentID }}{{ if .AgentType }} &middot; {{ .AgentType }}{{ end }}</span>
+              </td>
+              <td>
+                {{ if .Unknown }}<span class="badge badge-unknown">未受信</span>
+                {{ else if .Down }}<span class="badge badge-down">欠報</span>
+                {{ else }}<span class="badge badge-up">生存</span>{{ end }}
+              </td>
+              <td class="num">{{ .LastSeen }}</td>
+              <td class="num">{{ .Silence }}</td>
+              <td class="num">{{ .RootDisk }}</td>
+              <td class="num">{{ .Load }}</td>
+            </tr>
+            {{ else }}
+            <tr>
+              <td class="empty" colspan="6">まだレポートを 1 件も受け取っていません。</td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+
+      <footer>
+        この画面は monitor 自身が落ちていれば開けません。monitor の生存は別の手段で外から見てください。
+      </footer>
+    </div>
+  </body>
+</html>
