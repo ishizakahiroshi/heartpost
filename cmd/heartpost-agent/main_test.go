@@ -32,7 +32,7 @@ func TestRunCollectorsSkipsDisabled(t *testing.T) {
 	cfg := &AgentConfig{}
 	cfg.Agent.ID = "agent-example-01"
 	cfg.Collectors.Jobs = map[string]bool{}
-	for _, c := range registeredCollectors() {
+	for _, c := range registeredCollectors(cfg) {
 		cfg.Collectors.Jobs[c.Name()] = false
 	}
 
@@ -52,7 +52,7 @@ func TestRunCollectorsRecordsErrorOnExpiredContext(t *testing.T) {
 	defer cancel()
 
 	results := runCollectors(ctx, cfg, collector.Config{}, discardLogger())
-	if len(results) != len(registeredCollectors()) {
+	if len(results) != len(registeredCollectors(cfg)) {
 		t.Fatalf("results = %d, want one entry per collector", len(results))
 	}
 	for name, raw := range results {

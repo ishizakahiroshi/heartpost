@@ -1,0 +1,45 @@
+# heartpost-agent (VPS side)
+#
+# One-shot. The timer starts it; it collects, posts, and exits. Nothing stays
+# resident, so a hung run cannot keep the next one from starting cleanly.
+#
+# Install:
+#   sudo install -m 0755 heartpost-agent /usr/local/bin/
+#   sudo install -d -m 0750 -o heartpost -g heartpost /etc/heartpost /var/lib/heartpost
+#   sudo install -m 0600 -o heartpost -g heartpost agent.toml /etc/heartpost/agent.toml
+#   sudo install -m 0600 -o heartpost -g heartpost agent_secrets.toml /etc/heartpost/agent_secrets.toml
+#   sudo cp heartpost-agent.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now heartpost-agent.timer
+#
+# Run it as its own user, not root. The collectors only read. A collector that
+# cannot read something reports that it could not, which is the honest answer;
+# handing the agent root to make every field populate is the wrong trade.
+
+[Unit]
+Description=heartpost agent (one-shot liveness report)
+Documentation=https://github.com/ishizakahiroshi/heartpost
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=heartpost
+Group=heartpost
+ExecStart=/usr/local/bin/heartpost-agent --config /etc/heartpost/agent.toml
+
+# The run must finish well inside the timer interval so two runs never overlap.
+# The agent also has its own runtime.timeout_sec; keep this one above it.
+TimeoutStartSec=120
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/heartpost
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

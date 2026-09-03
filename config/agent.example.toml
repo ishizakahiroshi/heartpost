@@ -76,3 +76,33 @@ log_dir = "/home/<user>/log"
 # Keep the interval and the monitor's silence threshold in step. The monitor
 # should wait for more than one missed run before it alerts, or a single slow
 # tick becomes a false alarm.
+
+# ---------------------------------------------------------------------------
+# VPS only. Read when agent.type = "vps"; ignored entirely on shared hosting.
+# ---------------------------------------------------------------------------
+#
+# The VPS collectors are: system, process, cron, services, ssl, ssh, nginx,
+# updates. Every one of them can be turned off in [collectors.jobs] above —
+# there is no always-on set. A collector for something this host does not run
+# only produces noise you learn to ignore.
+#
+# [vps]
+# systemd units to report status and memory for. Plain unit names.
+# service_names = ["nginx", "sshd", "cron"]
+#
+# Logs to read. Leave a path empty and that collector reports nothing rather
+# than failing. How far back to read; 0 uses the collector's own default.
+# auth_log = "/var/log/auth.log"
+# nginx_log = "/var/log/nginx/access.log"
+# auth_log_lines = 2000
+# nginx_log_lines = 2000
+#
+# Working directory for state the collectors keep between runs (parsed log
+# offsets and the like). Must be writable by the user the agent runs as.
+# data_dir = "/var/lib/heartpost"
+#
+# Certificate to check, and the systemd timer that renews it. Unit names differ
+# between hosts; leave renew_timer empty only if yours really is certbot.timer.
+# A wrong name does not error — the timer fields just stay empty forever.
+# domain = "example.net"
+# renew_timer = "certbot.timer"

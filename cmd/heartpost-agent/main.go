@@ -120,7 +120,7 @@ func run(cfg *AgentConfig, logger *log.Logger) error {
 // 失敗した項目は null ではなく _error を持つオブジェクトにする。null にすると
 // 受信側で「この環境には無い項目」と「取ろうとして失敗した」が区別できない。
 func runCollectors(ctx context.Context, cfg *AgentConfig, collCfg collector.Config, logger *log.Logger) map[string]json.RawMessage {
-	collectors := registeredCollectors()
+	collectors := registeredCollectors(cfg)
 	results := make(map[string]json.RawMessage, len(collectors))
 
 	for _, c := range collectors {

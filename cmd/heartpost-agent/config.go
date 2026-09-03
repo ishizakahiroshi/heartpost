@@ -17,8 +17,8 @@ const secretsFileName = "agent_secrets.toml"
 
 // AgentConfig は agent.toml（＋ agent_secrets.toml）の内容。
 //
-// セクションは 5 つだけに保つ。共有ホスティングに置く設定なので、
-// 増やすほど「どこに何を書くのか」を人が読み違える。
+// セクションを増やすほど「どこに何を書くのか」を人が読み違える。共有ホスティング側で
+// 必要なのは先頭 5 セクションだけで、[vps] は agent.type = "vps" のときにしか読まれない。
 type AgentConfig struct {
 	Agent struct {
 		ID    string `toml:"id"`
@@ -49,6 +49,18 @@ type AgentConfig struct {
 		WWWDir  string `toml:"www_dir"`
 		LogDir  string `toml:"log_dir"`
 	} `toml:"paths"`
+
+	// VPS は agent.type = "vps" のときだけ使う。共有ホスティングでは丸ごと不要。
+	VPS struct {
+		ServiceNames  []string `toml:"service_names"`
+		AuthLog       string   `toml:"auth_log"`
+		NginxLog      string   `toml:"nginx_log"`
+		DataDir       string   `toml:"data_dir"`
+		AuthLogLines  int      `toml:"auth_log_lines"`
+		NginxLogLines int      `toml:"nginx_log_lines"`
+		Domain        string   `toml:"domain"`
+		RenewTimer    string   `toml:"renew_timer"`
+	} `toml:"vps"`
 
 	// ConfigDir は agent.toml が置かれているディレクトリ。ロックファイルの
 	// 置き場所を決めるときの最後のよりどころに使う。
@@ -117,6 +129,9 @@ func (c *AgentConfig) validate() error {
 	}
 	if c.Agent.Type == "" {
 		c.Agent.Type = "rental"
+	}
+	if c.Agent.Type != "rental" && c.Agent.Type != "vps" {
+		return fmt.Errorf("agent.type は rental か vps のいずれか（実際の値: %q）", c.Agent.Type)
 	}
 	if c.Monitor.Path == "" {
 		c.Monitor.Path = report.DefaultPath

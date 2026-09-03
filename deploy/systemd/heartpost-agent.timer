@@ -1,0 +1,23 @@
+# Runs heartpost-agent every five minutes.
+#
+# Keep this interval and the monitor's liveness.agent_interval in step. The
+# monitor calls a server down after three intervals by default, so changing one
+# side alone either alerts too eagerly or stays quiet for far too long.
+#
+# Persistent=true makes a boot after downtime send one report immediately
+# instead of waiting for the next tick, so a rebooted host stops looking down.
+
+[Unit]
+Description=Run heartpost-agent every 5 minutes
+Documentation=https://github.com/ishizakahiroshi/heartpost
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+RandomizedDelaySec=20s
+Persistent=true
+Unit=heartpost-agent.service
+
+[Install]
+WantedBy=timers.target
