@@ -25,9 +25,18 @@ import (
 	"github.com/ishizakahiroshi/heartpost/report"
 )
 
+// version は GoReleaser が git タグから焼き込む。手元ビルドは "dev" のまま。
+var version = "dev"
+
 func main() {
 	configPath := flag.String("config", "", "monitor の設定ファイル（TOML）へのパス")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
 
 	if *configPath == "" {
 		fmt.Fprintln(os.Stderr, "usage: heartpost-monitor -config <monitor.toml>")

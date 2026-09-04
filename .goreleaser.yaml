@@ -1,0 +1,80 @@
+version: 2
+
+project_name: heartpost
+
+builds:
+  - id: agent
+    main: ./cmd/heartpost-agent
+    binary: heartpost-agent
+    goos:
+      - linux
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: freebsd
+        goarch: arm64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+  - id: monitor
+    main: ./cmd/heartpost-monitor
+    binary: heartpost-monitor
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+
+archives:
+  - id: default
+    formats: [zip]
+    # freebsd/amd64 ships agent only; linux ships agent + monitor.
+    allow_different_binary_count: true
+    name_template: "heartpost-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - README.md
+      - CHANGELOG.md
+      - LICENSE
+      - scripts/install-agent.sh
+      - config/agent.example.toml
+      - config/agent_secrets.example.toml
+      - config/monitor.example.toml
+      - deploy/systemd/heartpost-agent.service
+      - deploy/systemd/heartpost-agent.timer
+
+checksum:
+  name_template: "SHA256SUMS.txt"
+  algorithm: sha256
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - artifacts: checksum
+    cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--yes"
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+
+# Release notes come from CHANGELOG.md via --release-notes in release.yml.
+changelog:
+  disable: true
+
+release:
+  draft: false
+  prerelease: auto
+  name_template: "{{.Tag}}"

@@ -1,0 +1,120 @@
+# Tag-driven GitHub Release via GoReleaser.
+# Channels for v0.1.0: github-release only (no homebrew / winget / npm).
+# GITHUB_TOKEN is enough for this repo's Release. PUBLISH_GITHUB_TOKEN is not used.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  id-token: write # cosign keyless signing of SHA256SUMS.txt
+
+jobs:
+  release:
+    name: GoReleaser
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::invalid release tag: ${RELEASE_TAG}"
+            exit 1
+          fi
+          tag_commit="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          source_commit="$(git rev-parse HEAD)"
+          if [ "${source_commit}" != "${tag_commit}" ]; then
+            echo "::error::checked out source ${source_commit} does not match ${RELEASE_TAG} (${tag_commit})"
+            exit 1
+          fi
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: "v2.4.3"
+
+      - uses: anchore/sbom-action/download-syft@v0
+
+      - name: Extract release notes from CHANGELOG.md
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          awk -v ver="$VERSION" '
+            BEGIN { hdr = "## [" ver "]" }
+            index($0, hdr) == 1 { flag = 1; next }
+            flag && index($0, "## [") == 1 { exit }
+            flag { print }
+          ' CHANGELOG.md > "${RUNNER_TEMP}/release-notes.md"
+          echo "----- release notes (${VERSION}) -----"
+          cat "${RUNNER_TEMP}/release-notes.md"
+
+      # Pin and verify GoReleaser the same way as many-ai-cli: download the
+      # release archive, verify the checksum with cosign, then install.
+      - name: Install verified GoReleaser v2.18.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=v2.18.0
+          archive=goreleaser_Linux_x86_64.tar.gz
+          base="https://github.com/goreleaser/goreleaser/releases/download/${version}"
+          verify_dir="${RUNNER_TEMP}/goreleaser-verify"
+          install_dir="${RUNNER_TEMP}/goreleaser-bin"
+          rm -rf "${verify_dir}" "${install_dir}"
+          mkdir -p "${verify_dir}" "${install_dir}"
+          cd "${verify_dir}"
+          for file in checksums.txt checksums.txt.sigstore.json "${archive}"; do
+            curl --fail --location --retry 3 --output "${file}" "${base}/${file}"
+          done
+          cosign verify-blob \
+            --bundle checksums.txt.sigstore.json \
+            --certificate-identity "https://github.com/goreleaser/goreleaser/.github/workflows/release.yml@refs/tags/${version}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            checksums.txt
+          expected="$(awk -v name="${archive}" '$2 == name { print $1 }' checksums.txt)"
+          [[ "${expected}" =~ ^[0-9a-f]{64}$ ]] || {
+            echo "::error::missing or ambiguous checksum for ${archive}"
+            exit 1
+          }
+          actual="$(sha256sum "${archive}" | cut -d' ' -f1)"
+          [ "${actual}" = "${expected}" ] || {
+            echo "::error::GoReleaser archive checksum mismatch"
+            exit 1
+          }
+          tar -xzf "${archive}" -C "${install_dir}" goreleaser
+          "${install_dir}/goreleaser" --version | grep -F '2.18.0'
+          echo "${install_dir}" >> "${GITHUB_PATH}"
+
+      - name: Publish release with verified GoReleaser
+        shell: bash
+        run: goreleaser release --clean --release-notes="${RUNNER_TEMP}/release-notes.md"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure release notes (automated, no manual gh release edit)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          notes="${RUNNER_TEMP}/release-notes.md"
+          if [ -s "$notes" ]; then
+            gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --notes-file "$notes"
+            echo "release body set from CHANGELOG [${RELEASE_TAG#v}] section"
+          else
+            echo "WARN: extracted notes empty; left goreleaser-generated body in place"
+          fi

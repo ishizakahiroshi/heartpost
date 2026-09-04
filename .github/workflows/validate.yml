@@ -1,0 +1,113 @@
+# Go CI. Template: github-actions assets/ci-go.yml.
+# web/ is go:embed of static HTML, not a bun frontend — no frontend job.
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  go-check:
+    name: Go (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build
+        run: go build ./...
+      - name: Test
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Verify modules
+        run: go mod verify
+
+  # GitHub-hosted runners cannot run FreeBSD. Cross-compile the release
+  # targets so a freebsd/amd64 break is visible before a tag.
+  cross-compile:
+    name: Cross-compile release targets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build linux and freebsd release targets
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          GOOS=linux GOARCH=amd64 go build -o /tmp/heartpost-agent-linux-amd64 ./cmd/heartpost-agent
+          GOOS=linux GOARCH=amd64 go build -o /tmp/heartpost-monitor-linux-amd64 ./cmd/heartpost-monitor
+          GOOS=linux GOARCH=arm64 go build -o /tmp/heartpost-agent-linux-arm64 ./cmd/heartpost-agent
+          GOOS=linux GOARCH=arm64 go build -o /tmp/heartpost-monitor-linux-arm64 ./cmd/heartpost-monitor
+          GOOS=freebsd GOARCH=amd64 go build -o /tmp/heartpost-agent-freebsd-amd64 ./cmd/heartpost-agent
+
+  go-mod-tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Check go mod tidy
+        run: go mod tidy
+      - name: Verify tidy output
+        run: git diff --exit-code -- go.mod go.sum
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  gosec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run gosec (high/high)
+        run: go run github.com/securego/gosec/v2/cmd/gosec@latest -quiet -severity high -confidence high ./...
+
+  staticcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+
+  claude-md:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check CLAUDE.md stays an index
+        run: node scripts/check-claude-md.mjs
