@@ -65,7 +65,8 @@ for it instead of assuming the dashboard is honest when it is silent.
 
 ## Status
 
-Early development. Nothing is released yet.
+v0.1.0 is on [GitHub Releases](https://github.com/ishizakahiroshi/heartpost/releases/tag/v0.1.0)
+(linux/amd64, linux/arm64, freebsd/amd64).
 
 ## License
 
