@@ -6,7 +6,7 @@ An agent runs from cron on each server, collects a few basic metrics, and POSTs 
 signed heartbeat to a monitor you host yourself. The monitor stores the reports and
 **tells you when a server stops reporting**. That last part is the point.
 
-Japanese overview page: <https://ishizakahiroshi.github.io/heartpost/>
+Japanese overview page: <https://ishizakahiroshi.com/work?id=heartpost>
 
 ## What it is
 

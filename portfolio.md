@@ -13,7 +13,7 @@ short:
   en: "Liveness monitoring for shared hosting and small VPS fleets. A cron-driven agent posts signed heartbeats; the monitor tells you when they stop arriving."
 tech: ["Go", "CLI", "FreeBSD", "systemd", "HMAC", "Self-hosted"]
 store: null
-live: "https://ishizakahiroshi.github.io/heartpost/"
+live: null
 guide: null
 featured: false
 features:
