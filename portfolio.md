@@ -14,7 +14,7 @@ short:
 tech: ["Go", "CLI", "FreeBSD", "systemd", "HMAC", "Self-hosted"]
 store: null
 live: null
-guide: null
+guide: "https://ishizakahiroshi.com/articles/heartpost/usage.html"
 featured: false
 features:
   - icon: "◷"
