@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "install": [
+    "gh release download --repo ishizakahiroshi/heartpost --pattern '*-linux-amd64.zip'",
+    "unzip heartpost-*-linux-amd64.zip -d heartpost && cd heartpost",
+    "cp config/monitor.example.toml monitor.toml"
+  ],
+  "run": [
+    "./heartpost-monitor -config ./monitor.toml",
+    "./scripts/install-agent.sh --host user@web01.example.com --binary ./heartpost-agent --config ./agent.toml --secrets ./agent_secrets.toml"
+  ],
+  "steps": {
+    "ja": [
+      "受信側にする VPS で最新リリースを展開し、monitor.toml に待受アドレス・保存先ディレクトリ・通知先 webhook・agent ごとの共有鍵を書く。外部データベースは要らない。",
+      "heartpost-monitor を起動する。指定したディレクトリに 1 行 1 レポートの JSONL と state.json が作られ、保持日数を過ぎたぶんは自動で消える。",
+      "監視したいサーバーごとに agent.toml を用意し、共有鍵は隣の agent_secrets.toml へ分けて mode 600 で置く。600 以外だと agent は警告ではなく起動拒否で止まる。",
+      "install-agent.sh を実行すると SSH で実行ファイルと設定を配り、crontab へ 5 分間隔の 1 行を追加する。root 権限もパッケージ導入も要らない。共有ホスティングが FreeBSD なら freebsd-amd64 の zip に入っている agent を --binary に渡す。",
+      "一覧画面を開いて全台が並ぶことを確認する。この monitor 自身の生存は認証なしの /healthz を外部の死活監視サービスか別ホストの cron から見ておく。"
+    ],
+    "en": [
+      "Unpack the latest release on the VPS that will receive reports, then fill in monitor.toml: listen address, data directory, webhook URL, and one shared key per agent. No external database is needed.",
+      "Start heartpost-monitor. It writes one JSONL line per report plus state.json into the data directory, and deletes files past the retention window on its own.",
+      "Write an agent.toml for each server you want to watch, and keep the shared key in agent_secrets.toml next to it with mode 600. Anything looser and the agent refuses to start instead of warning.",
+      "Run install-agent.sh: it copies the binary and config over SSH and installs one crontab line every five minutes. No root, no package installation. For FreeBSD shared hosting, pass the agent from the freebsd-amd64 zip to --binary.",
+      "Open the listing page and check that every server shows up. Watch this monitor itself from outside: point an uptime service or a cron job on another host at its unauthenticated /healthz."
+    ]
+  },
+  "guideUrl": null
+}
