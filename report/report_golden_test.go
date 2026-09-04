@@ -1,6 +1,7 @@
 package report
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -47,10 +48,8 @@ func TestPayloadMatchesGolden(t *testing.T) {
 		t.Fatalf("read golden: %v", err)
 	}
 
-	// golden は末尾に改行を 1 つ持つ。
-	if len(want) > 0 && want[len(want)-1] == '\n' {
-		want = want[:len(want)-1]
-	}
+	// golden は末尾に改行を 1 つ持つ。Windows checkout では CRLF になる。
+	want = bytes.TrimRight(want, "\r\n")
 
 	if string(got) != string(want) {
 		t.Fatalf("wire format changed.\n got: %s\nwant: %s", got, want)
