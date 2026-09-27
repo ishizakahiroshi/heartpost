@@ -1,4 +1,11 @@
 ---
+cover:
+  path: portfolio/overview-2026-09-28.jpg
+  alt: {ja: "heartpost の紹介動画", en: "heartpost overview video"}
+video:
+  provider: youtube
+  id: "U0B9lnpfTqc"
+  durationSeconds: 20
 schemaVersion: 1
 color: "#d4553f"
 initials: "hp"
