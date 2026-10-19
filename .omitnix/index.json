@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated": {
-    "commit": "5c8b95de622d3efd4fa1385366a485a9a5a847ad",
+    "commit": "8b2ef02b14a6774eb72aa987f367fe37b96358cc",
     "dirty": true,
     "tool": "omitnix 0.1.3",
     "partial": false,
@@ -80,7 +80,11 @@
           ".rs"
         ],
         "capabilities": [
-          "summary"
+          "authentication",
+          "authorization",
+          "reads",
+          "summary",
+          "writes"
         ]
       },
       {
@@ -134,11 +138,11 @@
     "discovery_note": ""
   },
   "coverage": {
-    "discovered": 85,
-    "analyzed": 61,
+    "discovered": 91,
+    "analyzed": 65,
     "unresolved": 0,
     "unknown": 0,
-    "unclaimed": 24,
+    "unclaimed": 26,
     "skipped_by_config": 0
   },
   "files": [
@@ -149,6 +153,14 @@
       "fields": {},
       "unresolved": [],
       "reason": "no adapter claims '(no extension)'"
+    },
+    {
+      "path": ".github/workflows/gitleaks.yml",
+      "adapter": null,
+      "status": "unclaimed",
+      "fields": {},
+      "unresolved": [],
+      "reason": "no adapter claims '.yml'"
     },
     {
       "path": ".github/workflows/release.yml",
@@ -1634,6 +1646,14 @@
       "reason": "no adapter claims '.timer'"
     },
     {
+      "path": "doxguard.ci.json",
+      "adapter": null,
+      "status": "unclaimed",
+      "fields": {},
+      "unresolved": [],
+      "reason": "no adapter claims '.json'"
+    },
+    {
       "path": "go.mod",
       "adapter": null,
       "status": "unclaimed",
@@ -1983,6 +2003,66 @@
       "unresolved": []
     },
     {
+      "path": "scripts/secrets-scan.dual.mjs",
+      "adapter": "tsjs",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "value",
+          "value": "Dual migration gate: retain legacy coverage and add strict public structural scanning."
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "none_observed",
+          "value": []
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "path": "scripts/secrets-scan.dual.test.mjs",
+      "adapter": "tsjs",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "none_observed",
+          "value": null
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "none_observed",
+          "value": []
+        }
+      },
+      "unresolved": []
+    },
+    {
       "path": "scripts/secrets-scan.mjs",
       "adapter": "tsjs",
       "status": "analyzed",
@@ -1990,6 +2070,66 @@
         "summary": {
           "state": "value",
           "value": "kb-driven secrets-scan — unified scanner for layer 2 (husky) / layer 3 (CI) / layer 4 (release) / sweep"
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "none_observed",
+          "value": []
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "path": "scripts/secrets-scan.staged.mjs",
+      "adapter": "tsjs",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "none_observed",
+          "value": null
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "none_observed",
+          "value": []
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "path": "scripts/secrets-scan.staged.test.mjs",
+      "adapter": "tsjs",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "none_observed",
+          "value": null
         },
         "authentication": {
           "state": "not_configured"
