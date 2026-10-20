@@ -11,14 +11,12 @@ if [ "$(git config --local --get doxguard.prerelease.enabled)" = true ]; then
   "$dg_bin" scan --staged --block --strict --config "$dg_config" || exit $?
 fi
 # doxguard prerelease opt-in end
-# secrets-scan layer 2 (per-commit) — non-pnpm path via core.hooksPath = .githooks
-# 設計詳細: docs/local/secrets-scan-design/ (gitignored)
+# per-commit hooks — non-pnpm path via core.hooksPath = .githooks
+# 秘密・個人情報の検査は doxguard と gitleaks が担う（CI。手元は上の opt-in ブロック）。
 # Activate with: bash scripts/install-hooks.sh  or  pwsh scripts/install-hooks.ps1
 #
 # 各検査は必ず `|| exit 1` を付ける。付けずに並べると hook の終了コードが
 # 「最後のコマンドの結果」になり、前段の BLOCKED が握り潰される（2026-09-03 実際に踏んだ）。
-node scripts/secrets-scan.mjs --staged --block || exit 1
-
 # CLAUDE.md 構造検査（索引が本文で膨らむのを防ぐ・visibility に依存しない）
 node scripts/check-claude-md.mjs || exit 1
 

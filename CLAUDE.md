@@ -55,7 +55,7 @@ heartpost は、レンタルサーバー（共有ホスティング）と小規�
 - テスト: `go test ./...`
 - ビルド: `go build ./...`
 - FreeBSD 向けクロスビルド: `GOOS=freebsd GOARCH=amd64 go build ./cmd/heartpost-agent`
-- secrets-scan（手動）: `node scripts/secrets-scan.mjs --staged --block`
+- secrets-scan（手動）: `node scripts/secrets-scan.dual.mjs --native-only --staged`
 - CLAUDE.md 構造検査: `node scripts/check-claude-md.mjs`
 
 ## 設計原則の索引（本文は正本にある）
@@ -90,10 +90,10 @@ path and do not silently fall back to `docs/local` when the entry is missing.
 
 書く瞬間の責務（固有名詞の一般化・fixture は合成データ等）は上記「AI 作業共通ルール」の参照先に従う。このリポジトリ固有の配線は以下:
 
-- scanner: `scripts/secrets-scan.mjs`（手動実行: `node scripts/secrets-scan.mjs --staged --block`）
+- scanner: doxguard と gitleaks（手動実行: `node scripts/secrets-scan.dual.mjs --native-only --staged`。`DOXGUARD_PACKAGE_ROOT` で導入済みの doxguard を指す）
 - layer 2: `.githooks/pre-commit`（`git config core.hooksPath .githooks` で有効化。clone 後は `scripts/install-hooks.sh` または `scripts/install-hooks.ps1`）
 - layer 3: `.github/workflows/secrets-scan.yml`
-- env (full coverage に必要・未設定なら構造 regex のみで継続): `KB_ROOT` / `FAMILY_ROOT`。設定詳細は `scripts/secrets-scan.mjs` の冒頭コメント
+- env: 監視語リスト（watchlist）は公開しない。未設定の環境（公開 CI を含む）では構造パターンのみで継続する
 
 ## 関連ドキュメント
 
