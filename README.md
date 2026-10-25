@@ -83,6 +83,10 @@ setting changes another verifier's keys. Token verification and HTTP responses
 retain the existing wire formats; application-specific authorization remains the
 calling application's responsibility.
 
+`license.IssueOfflineLicenseWithType` accepts an application's explicit signed
+offline header type. The original `IssueOfflineLicense` preserves its existing
+wire identifier and bytes; verification authenticates the signed header too.
+
 The license helpers are optional. The one-shot `heartpost-agent` command keeps
 its existing heartbeat behavior. File locks use real OS locking on Windows as
 well as Unix, and releasing a lock keeps the lock file in place.

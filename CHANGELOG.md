@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 - Public `agentlicense` Go package for license signatures, signed tokens, offline
   licenses, and monitor authentication, with explicit per-verifier configuration.
+- Explicit signed offline header types for embedding applications, while the
+  original issuance function preserves its existing wire bytes.
 - Public `filelock` Go package for nonblocking Unix and Windows locks, with a
   shared contention sentinel across the public and internal import paths.
 

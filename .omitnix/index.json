@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated": {
-    "commit": "b9342f7087029018d2506053018c3e3375cee523",
+    "commit": "55f2276188ba21b7a2fedaa51f6a911da6d7ff38",
     "dirty": true,
     "tool": "omitnix 0.1.4",
     "partial": false,
@@ -138,8 +138,8 @@
     "discovery_note": ""
   },
   "coverage": {
-    "discovered": 102,
-    "analyzed": 76,
+    "discovered": 103,
+    "analyzed": 77,
     "unresolved": 0,
     "unknown": 0,
     "unclaimed": 26,
@@ -418,6 +418,35 @@
     },
     {
       "path": "agentlicense/offline_test.go",
+      "adapter": "go",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "none_observed",
+          "value": null
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "out_of_scope"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "path": "agentlicense/offline_type_test.go",
       "adapter": "go",
       "status": "analyzed",
       "fields": {

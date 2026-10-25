@@ -35,6 +35,16 @@ type OfflineFile struct {
 
 // IssueOfflineLicense はオフラインライセンスファイルをJSON形式で発行する。
 func IssueOfflineLicense(priv ed25519.PrivateKey, kid string, claims Claims, meta OfflineMeta) ([]byte, error) {
+	return IssueOfflineLicenseWithType(priv, kid, claims, meta, "sab-offline-license")
+}
+
+// IssueOfflineLicenseWithType issues an offline file with an explicit signed
+// header type. Applications can preserve their existing wire identifier without
+// changing claims or cryptography. An empty type is rejected.
+func IssueOfflineLicenseWithType(priv ed25519.PrivateKey, kid string, claims Claims, meta OfflineMeta, offlineType string) ([]byte, error) {
+	if offlineType == "" {
+		return nil, fmt.Errorf("offline license: type is required")
+	}
 	f := OfflineFile{
 		Version: OfflineFileVersion,
 		Claims:  claims,
@@ -42,8 +52,7 @@ func IssueOfflineLicense(priv ed25519.PrivateKey, kid string, claims Claims, met
 	}
 	f.Header.Alg = "EdDSA"
 	f.Header.Kid = kid
-	// This identifier is part of the existing signed wire format.
-	f.Header.Typ = "sab-offline-license"
+	f.Header.Typ = offlineType
 
 	// 署名対象: canonical JSON of {header, claims}
 	sigTarget, err := json.Marshal(struct {
