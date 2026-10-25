@@ -8,7 +8,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	sharedcollector "github.com/ishizakahiroshi/heartpost/collector"
 	collector "github.com/ishizakahiroshi/heartpost/collector/optional"
 )
 
@@ -126,6 +128,9 @@ func TestCollectWithoutNextcloudIgnoresAuditLogDir(t *testing.T) {
 // paths.audit_log（monitor の監査ログのフォルダ）ではなく paths.nc_audit_log
 // （Nextcloud の audit.log）を読み、jsonl にも追記すること。
 func TestCollectReadsNcAuditLogNotAuditLog(t *testing.T) {
+	previousLocation := sharedcollector.Location()
+	sharedcollector.SetLocation(time.FixedZone("JST", 9*60*60))
+	t.Cleanup(func() { sharedcollector.SetLocation(previousLocation) })
 	e := newNCTestEnv(t)
 	monitorAuditDir := e.cfg.Paths.AuditLog
 	// monitor の監査ログ（読まれてはいけない）

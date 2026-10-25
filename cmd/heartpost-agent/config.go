@@ -16,7 +16,6 @@ func loadConfig(path string) (*AgentConfig, []string, error) {
 func checkSecretsPerm(path string, mode fs.FileMode, goos string) (string, error) {
 	return agent.CheckSecretsPerm(path, mode, goos)
 }
-func (c *AgentConfig) validate() error { return (*agent.AgentConfig)(c).Validate() }
 func (c *AgentConfig) collectorEnabled(name string) bool {
 	return (*agent.AgentConfig)(c).CollectorEnabled(name)
 }
