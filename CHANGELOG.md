@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2026-10-25
+
+### Added
+
+- Public `agent` runtime for one-shot and interval collection, multiple report
+  targets, delivery failure policies, optional licensing and signed token caches.
+  Shutdown joins collectors, delivery requests and license heartbeats.
+- Optional audit log, backup, fail2ban, honeypot, Nextcloud, extracted event,
+  object storage and threat collectors with explicit deployment configuration.
+- Opt-in HTTP decoy handler, shared audit event type and object storage operations
+  helper for embedding applications.
+- Blocking `agentlicense.RunHeartbeat` helper without changing the existing
+  verifier interface or asynchronous heartbeat entry point.
+
+### Changed
+
+- The standard agent command uses the shared runtime while preserving its
+  one-shot behavior, configuration, report encoding and failure handling.
+
 ## [0.2.0] - 2026-10-25
 
 ### Added

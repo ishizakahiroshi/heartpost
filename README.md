@@ -73,8 +73,26 @@ packages are available for applications that embed these helpers:
 
 | Import path | Purpose |
 |---|---|
+| `github.com/ishizakahiroshi/heartpost/agent` | Shared collection and delivery runner, one-shot or interval scheduling, ordered tasks, multiple targets, optional license verification and token caching. |
 | `github.com/ishizakahiroshi/heartpost/agentlicense` | License signatures, signed tokens, offline licenses, and monitor authentication. The Go package name is `license`. |
 | `github.com/ishizakahiroshi/heartpost/filelock` | Nonblocking file locks on Unix and Windows. `ErrLocked` identifies contention separately from I/O errors. |
+| `github.com/ishizakahiroshi/heartpost/collector/optional` | Explicit configuration and adapters for opt-in audit, backup, fail2ban, honeypot, Nextcloud, extraction, object storage and threat collectors. |
+| `github.com/ishizakahiroshi/heartpost/honeypotserver` | Optional HTTP decoy handler and JSONL event output. The caller owns its listener and shutdown. |
+| `github.com/ishizakahiroshi/heartpost/audit` | Audit event wire type shared by log producers and collectors. |
+| `github.com/ishizakahiroshi/heartpost/r2` | Object storage operations statistics helper. |
+
+Construct `agent.New(agent.Options{...})` without starting work, then call
+`Run(ctx)`. `Close(ctx)` cancels an active run and waits for its collectors and
+requests. One runner may be active per process because collectors share their
+timezone and cancellation settings. `ReturnFailure` returns when every target
+fails; in interval mode it also cancels and joins the other groups. `WarnFailure`
+logs delivery failures and continues the schedule.
+
+Optional collectors are library components. The standard command keeps its
+existing one-shot defaults and collector set. Embedding applications explicitly
+supply the input and state paths, permissions, timezone and background services.
+Log collectors may maintain derived JSONL files and checkpoints in those paths.
+No optional collector or decoy listener is enabled by importing a package.
 
 Construct a license verifier with `license.NewWithConfig(license.Config{...})`.
 The calling application supplies its signing material and trusted public keys;

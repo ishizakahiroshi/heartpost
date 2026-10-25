@@ -155,36 +155,55 @@ func (v *verifierImpl) StartHeartbeat(ctx context.Context, agentID, licenseKey, 
 	// 初期トークンを共有ストアに保存（main 側で SetCurrentToken 済みでも上書きは同値なので無害）
 	v.SetCurrentToken(token)
 
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+	go heartbeatLoop(ctx, v, agentID, licenseKey, monitorEndpoint, interval)
+}
 
-		url := strings.TrimRight(monitorEndpoint, "/") + "/api/license/heartbeat"
+// RunHeartbeat blocks until cancellation and joins any in-flight HTTP request.
+// Call SetCurrentToken before starting it. It never overwrites a token refreshed
+// by another request between goroutine scheduling and the first heartbeat.
+// Its interface parameter keeps existing Verifier implementations source-compatible.
+func RunHeartbeat(ctx context.Context, v Verifier, agentID, licenseKey, monitorEndpoint string, interval time.Duration) {
+	if monitorEndpoint == "" || monitorEndpoint == "http://localhost" || v.CurrentToken() == "" {
+		return
+	}
+	if interval <= 0 {
+		interval = 6 * time.Hour
+	}
+	heartbeatLoop(ctx, v, agentID, licenseKey, monitorEndpoint, interval)
+}
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				newToken, err := sendHeartbeat(ctx, url, agentID, v.CurrentToken())
-				if err != nil {
-					if isRevoked(err) {
-						reToken, rerr := v.VerifyWithMonitor(ctx, agentID, licenseKey, monitorEndpoint)
-						if rerr != nil {
-							log.Printf("license: re-auth failed agent=%s: %v – will retry next interval", agentID, rerr)
-							continue
-						}
-						v.SetCurrentToken(reToken)
-						log.Printf("license: re-auth ok agent=%s – heartbeat resumed", agentID)
+func heartbeatLoop(ctx context.Context, v Verifier, agentID, licenseKey, monitorEndpoint string, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	url := strings.TrimRight(monitorEndpoint, "/") + "/api/license/heartbeat"
+
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			newToken, err := sendHeartbeat(ctx, url, agentID, v.CurrentToken())
+			if err != nil {
+				if isRevoked(err) {
+					reToken, rerr := v.VerifyWithMonitor(ctx, agentID, licenseKey, monitorEndpoint)
+					if rerr != nil {
+						log.Printf("license: re-auth failed agent=%s: %v – will retry next interval", agentID, rerr)
 						continue
 					}
-					log.Printf("license: heartbeat error agent=%s: %v (will retry)", agentID, err)
-				} else if newToken != "" {
-					v.SetCurrentToken(newToken)
+					v.SetCurrentToken(reToken)
+					log.Printf("license: re-auth ok agent=%s – heartbeat resumed", agentID)
+					continue
 				}
+				log.Printf("license: heartbeat error agent=%s: %v (will retry)", agentID, err)
+			} else if newToken != "" {
+				v.SetCurrentToken(newToken)
 			}
 		}
-	}()
+	}
 }
 
 func isJWT(token string) bool {
