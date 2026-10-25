@@ -65,7 +65,7 @@ heartpost は、レンタルサーバー（共有ホスティング）と小規�
 | ルール | 正本（本文はここ） | 機械検査 |
 |---|---|---|
 | レポートのワイヤ仕様（パス・ヘッダ 3 種・payload の 5 キー・署名形式）は破壊的に変えない。変えると稼働中の全 agent が受信側から拒否される | `report/report.go` の定数とコメント | `report/report_golden_test.go`・`agentsig/agentsig_golden_test.go` |
-| 署名の計算は 1 箇所にしか置かない（送信側と検証側で別実装にしない） | `agentsig/agentsig.go` | `hmac.New` の出現箇所が `agentsig` だけであること |
+| レポート署名の計算は 1 箇所にしか置かない（送信側と検証側で別実装にしない）。ライセンス署名は別の用途として `agentlicense` に集約する | `agentsig/agentsig.go`、`agentlicense/verifier.go` | 各用途の呼び出し元に署名計算を複製しないこと |
 | collector は読むだけ。サーバーへ書き込む処理を持たせない | `collector/collector.go` のインターフェース定義 | なし（レビュー時に見る） |
 | 鍵ファイルは 600 でなければ agent を起動しない（共有ホスティングは他人と同居する） | `cmd/heartpost-agent/config.go` | なし（起動時にエラーで落ちる） |
 

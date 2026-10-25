@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.0] - 2026-10-25
+
+### Added
+
+- Public `agentlicense` Go package for license signatures, signed tokens, offline
+  licenses, and monitor authentication, with explicit per-verifier configuration.
+- Public `filelock` Go package for nonblocking Unix and Windows locks, with a
+  shared contention sentinel across the public and internal import paths.
+
+### Changed
+
+- Internal file locking delegates to the public package. Agent commands and
+  heartbeat report formats retain their existing behavior.
+
 ## [0.1.0] - 2026-09-04
 
 First release. Liveness monitoring for shared hosting (FreeBSD, no root) and small VPS fleets.

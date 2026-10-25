@@ -65,9 +65,31 @@ an uptime service, a cron job on another host, anything that is not this monitor
 This is not a gap to be fixed later. Any single-point liveness checker has it. Plan
 for it instead of assuming the dashboard is honest when it is silent.
 
+## Go library packages
+
+Other monitoring applications can reuse the collectors, report types, and report
+signatures without running the heartpost commands. The following additional
+packages are available for applications that embed these helpers:
+
+| Import path | Purpose |
+|---|---|
+| `github.com/ishizakahiroshi/heartpost/agentlicense` | License signatures, signed tokens, offline licenses, and monitor authentication. The Go package name is `license`. |
+| `github.com/ishizakahiroshi/heartpost/filelock` | Nonblocking file locks on Unix and Windows. `ErrLocked` identifies contention separately from I/O errors. |
+
+Construct a license verifier with `license.NewWithConfig(license.Config{...})`.
+The calling application supplies its signing material and trusted public keys;
+each verifier keeps its own configuration and current token. No shared package
+setting changes another verifier's keys. Token verification and HTTP responses
+retain the existing wire formats; application-specific authorization remains the
+calling application's responsibility.
+
+The license helpers are optional. The one-shot `heartpost-agent` command keeps
+its existing heartbeat behavior. File locks use real OS locking on Windows as
+well as Unix, and releasing a lock keeps the lock file in place.
+
 ## Status
 
-v0.1.0 is on [GitHub Releases](https://github.com/ishizakahiroshi/heartpost/releases/tag/v0.1.0)
+Published binaries are on [GitHub Releases](https://github.com/ishizakahiroshi/heartpost/releases)
 (linux/amd64, linux/arm64, freebsd/amd64).
 
 ## License
