@@ -52,9 +52,21 @@ func TestFileSinkRefusesWritableParent(t *testing.T) {
 	}
 }
 
+// realTempDir returns t.TempDir() with symlinks resolved: on macOS the system
+// temp dir sits under /var, a symlink to /private/var, which the production
+// check correctly refuses.
+func realTempDir(t *testing.T) string {
+	t.Helper()
+	d, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
 func ownerFixture(t *testing.T, mode os.FileMode) string {
 	t.Helper()
-	dir := t.TempDir()
+	dir := realTempDir(t)
 	if err := os.Chmod(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +149,7 @@ func TestOwnersWritableParentRejected(t *testing.T) {
 
 func TestOwnersSymlinkAnywhereRejected(t *testing.T) {
 	p := ownerFixture(t, 0o600)
-	link := filepath.Join(t.TempDir(), "dirlink")
+	link := filepath.Join(realTempDir(t), "dirlink")
 	if err := os.Symlink(filepath.Dir(p), link); err != nil {
 		t.Fatal(err)
 	}
@@ -145,8 +157,8 @@ func TestOwnersSymlinkAnywhereRejected(t *testing.T) {
 		t.Fatal("symlinked parent accepted")
 	}
 	// A symlinked grandparent.
-	gp := filepath.Join(t.TempDir(), "gplink")
-	base := t.TempDir()
+	gp := filepath.Join(realTempDir(t), "gplink")
+	base := realTempDir(t)
 	if err := os.Mkdir(filepath.Join(base, "sub"), 0o700); err != nil {
 		t.Fatal(err)
 	}

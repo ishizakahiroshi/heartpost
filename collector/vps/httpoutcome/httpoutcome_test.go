@@ -20,7 +20,11 @@ func id(c string) string { return strings.Repeat(c, 32) }
 
 func setup(t *testing.T, content string) (vps.Config, string) {
 	t.Helper()
-	dir := t.TempDir()
+	// Resolve symlinks (macOS temp dirs live under the /var symlink).
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	_ = os.Chmod(dir, 0o700)
 	p := filepath.Join(dir, "r.jsonl")
 	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
