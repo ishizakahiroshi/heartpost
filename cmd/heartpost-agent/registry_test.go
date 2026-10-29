@@ -12,7 +12,7 @@ func TestRegisteredCollectorsByType(t *testing.T) {
 	}
 	vpsWant := []string{
 		"system", "process", "cron", "services",
-		"ssl", "ssh", "nginx", "updates",
+		"ssl", "ssh", "nginx", "http_outcome", "updates",
 	}
 
 	cases := []struct {

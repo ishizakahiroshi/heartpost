@@ -39,6 +39,9 @@ type PathConfig struct {
 	AuthLog string
 	// NginxLog は nginx のアクセスログ（例: /var/log/nginx/access.log）。
 	NginxLog string
+	// HTTPOutcomeLogs は httpoutcome の受領記録（JSONL）のパス。空なら http_outcome collector は何も返さない。
+	// 各ファイルは所有者・symlink・書込権限の検査に通ったものだけ読む。
+	HTTPOutcomeLogs []string
 	// DataDir は collector が前回値や抽出結果を置く作業ディレクトリ。
 	DataDir string
 }
@@ -47,6 +50,8 @@ type PathConfig struct {
 type RulesConfig struct {
 	AuthLogLines  int
 	NginxLogLines int
+	// HTTPOutcomeLogLines は受領記録ファイル 1 つあたり 1 回に読む行数の上限。0 なら 5000。
+	HTTPOutcomeLogLines int
 }
 
 // Collector は vps collector が実装するインターフェース。

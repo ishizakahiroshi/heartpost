@@ -5,6 +5,7 @@ import (
 	"github.com/ishizakahiroshi/heartpost/collector/rental"
 	"github.com/ishizakahiroshi/heartpost/collector/vps"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/cron"
+	"github.com/ishizakahiroshi/heartpost/collector/vps/httpoutcome"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/nginx"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/process"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/services"
@@ -52,11 +53,15 @@ func vpsCollectors(cfg *AgentConfig) []collector.Collector {
 		Paths: vps.PathConfig{
 			AuthLog:  cfg.VPS.AuthLog,
 			NginxLog: cfg.VPS.NginxLog,
-			DataDir:  cfg.VPS.DataDir,
+
+			HTTPOutcomeLogs: cfg.VPS.HTTPOutcomeLogs,
+			DataDir:         cfg.VPS.DataDir,
 		},
 		Rules: vps.RulesConfig{
 			AuthLogLines:  cfg.VPS.AuthLogLines,
 			NginxLogLines: cfg.VPS.NginxLogLines,
+
+			HTTPOutcomeLogLines: cfg.VPS.HTTPOutcomeLogLines,
 		},
 		Domain:     cfg.VPS.Domain,
 		RenewTimer: cfg.VPS.RenewTimer,
@@ -70,6 +75,7 @@ func vpsCollectors(cfg *AgentConfig) []collector.Collector {
 		&ssl.Collector{},
 		&ssh.Collector{},
 		&nginx.Collector{},
+		&httpoutcome.Collector{},
 		&updates.Collector{},
 	}
 

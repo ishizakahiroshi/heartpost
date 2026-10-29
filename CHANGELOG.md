@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `httpoutcome` package: trusted receipts for deliberate outbound HTTP calls
+  (operation tag, `X-HTTP-Operation-ID`, JSONL file sink).
+- `http_outcome` VPS collector, and an optional trailing `"op=<hex32>"` field in the
+  nginx access-log parser exposed as `request_id`.
+
 ## [0.3.0] - 2026-10-25
 
 ### Added

@@ -97,6 +97,13 @@ log_dir = "/home/<user>/log"
 # auth_log_lines = 2000
 # nginx_log_lines = 2000
 #
+# Receipt files written by a producer that uses the httpoutcome package. Each
+# file must be owned by the agent user, not a symlink and not group/world
+# writable; otherwise it is skipped and the reason is logged. The second line is
+# how many lines are read per file per run (0 = 5000).
+# http_outcome_logs = ["/var/lib/example-app/http-outcome.jsonl"]
+# http_outcome_log_lines = 5000
+#
 # Working directory for state the collectors keep between runs (parsed log
 # offsets and the like). Must be writable by the user the agent runs as.
 # data_dir = "/var/lib/heartpost"

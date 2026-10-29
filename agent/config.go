@@ -54,8 +54,11 @@ type AgentConfig struct {
 		DataDir       string   `toml:"data_dir"`
 		AuthLogLines  int      `toml:"auth_log_lines"`
 		NginxLogLines int      `toml:"nginx_log_lines"`
-		Domain        string   `toml:"domain"`
-		RenewTimer    string   `toml:"renew_timer"`
+
+		HTTPOutcomeLogs     []string `toml:"http_outcome_logs"`
+		HTTPOutcomeLogLines int      `toml:"http_outcome_log_lines"`
+		Domain              string   `toml:"domain"`
+		RenewTimer          string   `toml:"renew_timer"`
 	} `toml:"vps"`
 
 	// ConfigDir は agent.toml が置かれているディレクトリ。ロックファイルの

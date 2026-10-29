@@ -80,6 +80,7 @@ packages are available for applications that embed these helpers:
 | `github.com/ishizakahiroshi/heartpost/honeypotserver` | Optional HTTP decoy handler and JSONL event output. The caller owns its listener and shutdown. |
 | `github.com/ishizakahiroshi/heartpost/audit` | Audit event wire type shared by log producers and collectors. |
 | `github.com/ishizakahiroshi/heartpost/r2` | Object storage operations statistics helper. |
+| `github.com/ishizakahiroshi/heartpost/httpoutcome` | Trusted receipts for deliberate outbound HTTP calls (`WithOperation`, `NewTransport`, `NewFileSink`), so a consumer can tell an expected 404/405 from a real failure. |
 
 Construct `agent.New(agent.Options{...})` without starting work, then call
 `Run(ctx)`. `Close(ctx)` cancels an active run and waits for its collectors and
@@ -93,6 +94,28 @@ existing one-shot defaults and collector set. Embedding applications explicitly
 supply the input and state paths, permissions, timezone and background services.
 Log collectors may maintain derived JSONL files and checkpoints in those paths.
 No optional collector or decoy listener is enabled by importing a package.
+
+### Correlating receipts with nginx
+
+The `httpoutcome` transport adds a random `X-HTTP-Operation-ID` request header and
+writes one JSONL receipt per call. To let a consumer join receipts with the proxy's
+view of the same request, append the header as a last quoted field of the access
+log format. The nginx collector reads an optional trailing `"op=<hex32 or ->"` after
+the user agent and reports it as the event's `request_id` (only when it is 32
+lowercase hex characters; lines without the field parse as before):
+
+```nginx
+log_format hp_combined '$remote_addr - $remote_user [$time_local] "$request" '
+                       '$status $body_bytes_sent "$http_referer" "$http_user_agent" '
+                       '"op=$http_x_http_operation_id"';
+access_log /var/log/nginx/access.log hp_combined;
+```
+
+nginx logs an absent header as `-`. The proxy should drop any client-supplied
+`X-HTTP-Operation-ID` on requests that did not come from a trusted producer, since
+only the producer's own receipt vouches for the id. Receipt files are listed in the
+agent's `[vps] http_outcome_logs` and are read only if owned by the agent user, not
+symlinks and not group/world-writable.
 
 Construct a license verifier with `license.NewWithConfig(license.Config{...})`.
 The calling application supplies its signing material and trusted public keys;

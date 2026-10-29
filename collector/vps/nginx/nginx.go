@@ -18,6 +18,7 @@ import (
 
 	"github.com/ishizakahiroshi/heartpost/collector"
 	"github.com/ishizakahiroshi/heartpost/collector/vps"
+	"github.com/ishizakahiroshi/heartpost/httpoutcome"
 )
 
 type Collector struct{}
@@ -35,6 +36,8 @@ type NginxEvent struct {
 	UA      string `json:"ua"`
 	Referer string `json:"referer"`
 	RespMs  int    `json:"resp_ms"`
+	// RequestID は行末の "op=<hex32>"（X-HTTP-Operation-ID）。小文字 hex32 のときだけ入る。
+	RequestID string `json:"request_id,omitempty"`
 }
 
 type CollectResult struct {
@@ -48,7 +51,7 @@ type CollectResult struct {
 // フィールド: IP auth user [time] "request" status body_bytes resp_bytes "referer" "ua"
 // resp_bytes が存在しない場合は標準 combined: IP - user [time] "request" status body_bytes "referer" "ua"
 var reLogLine = regexp.MustCompile(
-	`^(\S+)\s+\S+\s+(\S+)\s+\[([^\]]+)\]\s+"([^"]+)"\s+(\d+)\s+(\d+)(?:\s+(\d+))?\s+"([^"]*)"\s+"([^"]*)"`,
+	`^(\S+)\s+\S+\s+(\S+)\s+\[([^\]]+)\]\s+"([^"]+)"\s+(\d+)\s+(\d+)(?:\s+(\d+))?\s+"([^"]*)"\s+"([^"]*)"(?:\s+"op=([^"]*)")?`,
 )
 
 func (c *Collector) Collect(cfg vps.Config) (interface{}, error) {
@@ -77,6 +80,9 @@ func (c *Collector) Collect(cfg vps.Config) (interface{}, error) {
 }
 
 func seenKey(ev NginxEvent) string {
+	if ev.RequestID != "" {
+		return ev.TS + "|" + ev.IP + "|" + ev.Path + "|" + ev.RequestID
+	}
 	return ev.TS + "|" + ev.IP + "|" + ev.Path
 }
 
@@ -124,6 +130,11 @@ func parseLine(line string, jst *time.Location) (NginxEvent, bool) {
 		_ = respBytesStr
 	}
 
+	requestID := ""
+	if httpoutcome.IsOperationID(m[10]) {
+		requestID = m[10]
+	}
+
 	if referer == "-" {
 		referer = ""
 	}
@@ -138,5 +149,7 @@ func parseLine(line string, jst *time.Location) (NginxEvent, bool) {
 		UA:      ua,
 		Referer: referer,
 		RespMs:  respMs,
+
+		RequestID: requestID,
 	}, true
 }
