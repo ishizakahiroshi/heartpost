@@ -42,6 +42,9 @@ type PathConfig struct {
 	// HTTPOutcomeLogs は httpoutcome の受領記録（JSONL）のパス。空なら http_outcome collector は何も返さない。
 	// 各ファイルは所有者・symlink・書込権限の検査に通ったものだけ読む。
 	HTTPOutcomeLogs []string
+	// HTTPOutcomeTrustedOwners は受領記録ファイルの所有者として追加で信頼するユーザー名または数値 uid。
+	// 空なら実行ユーザー自身が所有するファイルだけを読む。root は暗黙には信頼しない。
+	HTTPOutcomeTrustedOwners []string
 	// DataDir は collector が前回値や抽出結果を置く作業ディレクトリ。
 	DataDir string
 }

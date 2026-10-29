@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/user"
 	"path/filepath"
+	"strconv"
 
 	"github.com/ishizakahiroshi/heartpost/collector"
 	"github.com/ishizakahiroshi/heartpost/collector/vps"
@@ -25,6 +27,8 @@ const DefaultMaxLines = 5000
 type Collector struct {
 	// Logf receives skip reasons. nil uses the standard logger.
 	Logf func(format string, args ...any)
+	// LookupUser resolves user names for HTTPOutcomeTrustedOwners. nil uses os/user.
+	LookupUser func(name string) (*user.User, error)
 }
 
 // Name is the key used in [collectors.jobs] and in the report payload.
@@ -88,8 +92,32 @@ func (c *Collector) Collect(cfg vps.Config) (interface{}, error) {
 		SeenKey: func(r hp.Receipt) string { return r.RequestID },
 	}
 
+	var owners []uint32
+	ownersErr := false
+	for _, name := range cfg.Paths.HTTPOutcomeTrustedOwners {
+		uid, err := c.resolveOwner(name)
+		if err != nil {
+			c.logf("http_outcome: trusted owner %q cannot be resolved: %v", name, err)
+			ownersErr = true
+			continue
+		}
+		owners = append(owners, uid)
+	}
+
 	for _, p := range cfg.Paths.HTTPOutcomeLogs {
-		if err := hp.VerifyTrustedPath(p); err != nil {
+		if ownersErr {
+			// An owner list that cannot be resolved is a configuration error;
+			// reading files under a narrower rule than configured would hide it.
+			res.Skipped = append(res.Skipped, SkippedFile{Path: p, Reason: "unknown trusted owner in configuration"})
+			continue
+		}
+		var err error
+		if len(owners) == 0 {
+			err = hp.VerifyTrustedPath(p)
+		} else {
+			err = hp.VerifyTrustedPathWithOwners(p, owners)
+		}
+		if err != nil {
 			reason := "untrusted or unreadable file"
 			if os.IsNotExist(err) {
 				reason = "file does not exist"
@@ -111,4 +139,24 @@ func (c *Collector) Collect(cfg vps.Config) (interface{}, error) {
 	res.NewEvents = len(res.Events)
 	res.Dropped = dropped
 	return res, nil
+}
+
+// resolveOwner turns a user name or a numeric uid into a uid.
+func (c *Collector) resolveOwner(name string) (uint32, error) {
+	if n, err := strconv.ParseUint(name, 10, 32); err == nil {
+		return uint32(n), nil
+	}
+	lookup := c.LookupUser
+	if lookup == nil {
+		lookup = user.Lookup
+	}
+	u, err := lookup(name)
+	if err != nil {
+		return 0, err
+	}
+	n, err := strconv.ParseUint(u.Uid, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("non-numeric uid")
+	}
+	return uint32(n), nil
 }

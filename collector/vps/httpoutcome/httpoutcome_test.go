@@ -2,6 +2,7 @@ package httpoutcome
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -172,5 +173,47 @@ func TestRelativeAndUncleanPathsSkipped(t *testing.T) {
 		if s.Reason != "path must be absolute and clean" {
 			t.Fatalf("reason %q", s.Reason)
 		}
+	}
+}
+
+func TestTrustedOwnersResolution(t *testing.T) {
+	cfg, _ := setup(t, line(id("a"), "fetch_file", "success", "200")+"\n")
+	lookup := func(name string) (*user.User, error) {
+		if name == "known-producer" {
+			return &user.User{Uid: "4242"}, nil
+		}
+		return nil, user.UnknownUserError(name)
+	}
+	c := &Collector{Logf: func(string, ...any) {}, LookupUser: lookup}
+
+	// Numeric and known names resolve; the file (owned by the current user) is still read.
+	cfg.Paths.HTTPOutcomeTrustedOwners = []string{"known-producer", "4243"}
+	v, err := c.Collect(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := v.(*CollectResult); r.NewEvents != 1 || len(r.Skipped) != 0 {
+		t.Fatalf("%+v", r)
+	}
+
+	// An unknown name skips every file with a reason, without crashing.
+	cfg.Paths.HTTPOutcomeTrustedOwners = []string{"known-producer", "no-such-account"}
+	cfg.Paths.DataDir = filepath.Join(filepath.Dir(cfg.Paths.DataDir), "data2")
+	_ = os.Mkdir(cfg.Paths.DataDir, 0o700)
+	v, err = c.Collect(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := v.(*CollectResult)
+	if r.NewEvents != 0 || len(r.Skipped) != 1 || r.Skipped[0].Reason != "unknown trusted owner in configuration" {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEmptyOwnersKeepsCurrentBehaviour(t *testing.T) {
+	cfg, _ := setup(t, line(id("a"), "fetch_file", "success", "200")+"\n")
+	cfg.Paths.HTTPOutcomeTrustedOwners = nil
+	if r := collect(t, cfg); r.NewEvents != 1 {
+		t.Fatalf("%+v", r)
 	}
 }

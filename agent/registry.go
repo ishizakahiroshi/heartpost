@@ -54,8 +54,9 @@ func vpsCollectors(cfg *AgentConfig) []collector.Collector {
 			AuthLog:  cfg.VPS.AuthLog,
 			NginxLog: cfg.VPS.NginxLog,
 
-			HTTPOutcomeLogs: cfg.VPS.HTTPOutcomeLogs,
-			DataDir:         cfg.VPS.DataDir,
+			HTTPOutcomeLogs:          cfg.VPS.HTTPOutcomeLogs,
+			HTTPOutcomeTrustedOwners: append([]string(nil), cfg.VPS.HTTPOutcomeTrustedOwners...),
+			DataDir:                  cfg.VPS.DataDir,
 		},
 		Rules: vps.RulesConfig{
 			AuthLogLines:  cfg.VPS.AuthLogLines,

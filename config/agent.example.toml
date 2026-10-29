@@ -104,6 +104,14 @@ log_dir = "/home/<user>/log"
 # http_outcome_logs = ["/var/lib/example-app/http-outcome.jsonl"]
 # http_outcome_log_lines = 5000
 #
+# Receipt files are normally accepted only when owned by the agent user. If the
+# producer runs as another account, list it here (user name or numeric uid). Only
+# listed accounts are trusted -- root is not implied. The file must still not be
+# group/world-writable, and no directory in its path may be a symlink or be
+# writable by group/world (sticky directories such as /tmp are tolerated above
+# the parent). An unknown name makes the files be skipped, with the reason logged.
+# http_outcome_trusted_owners = ["example-producer"]
+#
 # Working directory for state the collectors keep between runs (parsed log
 # offsets and the like). Must be writable by the user the agent runs as.
 # data_dir = "/var/lib/heartpost"

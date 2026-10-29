@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `[vps] http_outcome_trusted_owners` (and `httpoutcome.VerifyTrustedPathWithOwners`):
+  an explicit allow-list of additional receipt-file owners for producers that run
+  as a different account than the agent. Root is not trusted implicitly; symlink,
+  writable-file and writable-directory checks still apply.
+
 ## [0.3.1] - 2026-10-30
 
 ### Added

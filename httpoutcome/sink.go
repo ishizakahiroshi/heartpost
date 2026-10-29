@@ -107,6 +107,52 @@ var (
 	ErrPathNotClean    = errors.New("path must be clean (no .., //, or trailing separator)")
 )
 
+// VerifyTrustedPathWithOwners is VerifyTrustedPath with an explicit allow-list of
+// additional file owners (numeric uids). A receipt file, and the directory that
+// holds it, are accepted when owned by the current user or by a listed uid. Root
+// is not trusted implicitly. Everything else still applies: absolute clean path,
+// no symlink anywhere in the path, a regular file that is not group/world
+// writable, and no parent directory that group or world can write (a sticky
+// directory such as /tmp is tolerated above the immediate parent). Ancestors
+// above the immediate parent must be owned by root, the current user or a
+// listed uid. Owners are ignored on Windows, where only the symlink checks apply.
+func VerifyTrustedPathWithOwners(path string, owners []uint32) error {
+	if err := CheckAbsoluteClean(path); err != nil {
+		return err
+	}
+	parent := filepath.Dir(path)
+	for anc := filepath.Dir(parent); ; anc = filepath.Dir(anc) {
+		fi, err := os.Lstat(anc)
+		if err != nil {
+			return fmt.Errorf("directory %s: %w", anc, err)
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("%s is a symlink", anc)
+		}
+		if !fi.IsDir() {
+			return fmt.Errorf("%s is not a directory", anc)
+		}
+		if err := checkAncestor(anc, fi, owners); err != nil {
+			return err
+		}
+		if next := filepath.Dir(anc); next == anc {
+			break
+		}
+	}
+	pfi, err := os.Lstat(parent)
+	if err != nil {
+		return fmt.Errorf("directory %s: %w", parent, err)
+	}
+	if err := checkFileInfoWith(parent, pfi, true, owners); err != nil {
+		return err
+	}
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	return checkFileInfoWith(path, fi, false, owners)
+}
+
 func verifyDir(dir string) error {
 	fi, err := os.Lstat(dir)
 	if err != nil {
@@ -131,6 +177,10 @@ func verifyOpened(path string, f *os.File) error {
 }
 
 func checkFileInfo(path string, fi os.FileInfo, wantDir bool) error {
+	return checkFileInfoWith(path, fi, wantDir, nil)
+}
+
+func checkFileInfoWith(path string, fi os.FileInfo, wantDir bool, owners []uint32) error {
 	if fi.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("%s is a symlink", path)
 	}
@@ -140,5 +190,5 @@ func checkFileInfo(path string, fi os.FileInfo, wantDir bool) error {
 	if !wantDir && !fi.Mode().IsRegular() {
 		return fmt.Errorf("%s is not a regular file", path)
 	}
-	return checkOwnerAndMode(path, fi)
+	return checkOwnerAndMode(path, fi, owners)
 }

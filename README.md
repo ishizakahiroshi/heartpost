@@ -117,6 +117,13 @@ only the producer's own receipt vouches for the id. Receipt files are listed in 
 agent's `[vps] http_outcome_logs` and are read only if owned by the agent user, not
 symlinks and not group/world-writable.
 
+When the producer runs as a different account than the agent, add it to
+`[vps] http_outcome_trusted_owners` (user names or numeric uids). Only the listed
+accounts are trusted in addition to the agent user; root is not implied. The file
+must still not be group/world-writable, and no directory in its path may be a
+symlink or writable by group or world. An unknown name causes the files to be
+skipped with the reason logged. In Go this is `httpoutcome.VerifyTrustedPathWithOwners`.
+
 Construct a license verifier with `license.NewWithConfig(license.Config{...})`.
 The calling application supplies its signing material and trusted public keys;
 each verifier keeps its own configuration and current token. No shared package
