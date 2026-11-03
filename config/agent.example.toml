@@ -61,6 +61,9 @@ process = true
 cpu = true
 network = true
 apache_log = true
+# Linux VPS snapshot: OS/kernel, dpkg packages, runtime and container evidence.
+# Disabled by default. Source failures stay explicit; this is not a CVE verdict.
+inventory = false
 
 [paths]
 # Used by the collectors to find what they read. Set them to the real paths on

@@ -5,7 +5,11 @@
 // ここには置かない。置くと「その製品を使っていない人には常に空の項目」が増える。
 package vps
 
-import "github.com/ishizakahiroshi/heartpost/collector"
+import (
+	"context"
+
+	"github.com/ishizakahiroshi/heartpost/collector"
+)
 
 // Config は vps collector 群へ渡す設定。
 //
@@ -82,5 +86,16 @@ type adapter struct {
 func (a *adapter) Name() string { return a.inner.Name() }
 
 func (a *adapter) Collect(_ collector.Config) (interface{}, error) {
+	return a.inner.Collect(a.cfg)
+}
+
+// CollectContext is optional for existing VPS collectors. Those supporting it
+// receive the agent's run deadline rather than outliving a canceled run.
+func (a *adapter) CollectContext(ctx context.Context, _ collector.Config) (interface{}, error) {
+	if c, ok := a.inner.(interface {
+		CollectContext(context.Context, Config) (interface{}, error)
+	}); ok {
+		return c.CollectContext(ctx, a.cfg)
+	}
 	return a.inner.Collect(a.cfg)
 }

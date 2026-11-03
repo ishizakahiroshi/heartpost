@@ -15,9 +15,20 @@ func configTasks(cfg *AgentConfig, collCfg collector.Config) []Task {
 	var tasks []Task
 	for _, c := range DefaultCollectors(cfg) {
 		current := c
-		tasks = append(tasks, Task{Name: current.Name(), Collect: func(context.Context) (any, error) { return current.Collect(collCfg) }})
+		tasks = append(tasks, Task{Name: current.Name(), Collect: func(ctx context.Context) (any, error) { return collectWithContext(ctx, current, collCfg) }})
 	}
 	return tasks
+}
+
+// collectWithContext preserves legacy collectors and forwards the run deadline to
+// collectors which support it, including the opt-in inventory adapter.
+func collectWithContext(ctx context.Context, c collector.Collector, cfg collector.Config) (interface{}, error) {
+	if aware, ok := c.(interface {
+		CollectContext(context.Context, collector.Config) (interface{}, error)
+	}); ok {
+		return aware.CollectContext(ctx, cfg)
+	}
+	return c.Collect(cfg)
 }
 func OptionsFromConfig(cfg *AgentConfig, logger *log.Logger) Options {
 	collCfg := collector.Config{AgentID: cfg.Agent.ID, HomeDir: cfg.Paths.HomeDir, WWWDir: cfg.Paths.WWWDir, LogDir: cfg.Paths.LogDir}

@@ -6,6 +6,7 @@ import (
 	"github.com/ishizakahiroshi/heartpost/collector/vps"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/cron"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/httpoutcome"
+	"github.com/ishizakahiroshi/heartpost/collector/vps/inventory"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/nginx"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/process"
 	"github.com/ishizakahiroshi/heartpost/collector/vps/services"
@@ -78,6 +79,11 @@ func vpsCollectors(cfg *AgentConfig) []collector.Collector {
 		&nginx.Collector{},
 		&httpoutcome.Collector{},
 		&updates.Collector{},
+	}
+
+	// Inventory is opt-in and is never registered for rental agents.
+	if cfg.Collectors.Jobs["inventory"] {
+		inner = append(inner, &inventory.Collector{})
 	}
 
 	out := make([]collector.Collector, 0, len(inner))
