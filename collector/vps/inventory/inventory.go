@@ -56,6 +56,7 @@ type Collector struct {
 	readDir  func(string) ([]os.DirEntry, error)
 	readlink func(string) (string, error)
 	stat     func(string) (os.FileInfo, error)
+	lookPath func(string) (string, error)
 }
 
 func (*Collector) Name() string { return "inventory" }

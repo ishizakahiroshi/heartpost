@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated": {
-    "commit": "fe200aacb693861277da440c56b33c384ed8f0e1",
+    "commit": "9a91c5f05abaac157b96c8e6eac041341b1c3aea",
     "dirty": true,
     "tool": "omitnix 0.1.4",
     "partial": false,
@@ -138,8 +138,8 @@
     "discovery_note": ""
   },
   "coverage": {
-    "discovered": 174,
-    "analyzed": 148,
+    "discovered": 175,
+    "analyzed": 149,
     "unresolved": 0,
     "unknown": 0,
     "unclaimed": 26,
@@ -2798,6 +2798,35 @@
     },
     {
       "path": "collector/vps/inventory/containers.go",
+      "adapter": "go",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "none_observed",
+          "value": null
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "out_of_scope"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "path": "collector/vps/inventory/executable_boundary_test.go",
       "adapter": "go",
       "status": "analyzed",
       "fields": {

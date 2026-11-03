@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"sort"
@@ -152,6 +153,15 @@ func (c *Collector) collectRuntimes(o *Observation, run func(string, ...string) 
 		stat = os.Stat
 	}
 	items := []Runtime{}
+	lookPath := c.lookPath
+	if lookPath == nil {
+		lookPath = exec.LookPath
+	}
+	type trustedProbe struct {
+		file          os.FileInfo
+		kind, version string
+	}
+	trusted := []trustedProbe{}
 	// PATH discoveries are deliberately separate from running-process evidence.
 	names, limited := runtimeCandidates(installed...)
 	if limited {
@@ -159,7 +169,21 @@ func (c *Collector) collectRuntimes(o *Observation, run func(string, ...string) 
 	}
 	for _, name := range names {
 		kind := runtimeKind(name)
-		v, status, code := probeVersion(run, name, kind)
+		// Execute only the explicit PATH probe. Process names must never grant
+		// permission to execute a lower-privilege process's /proc executable.
+		binary, resolveErr := lookPath(name)
+		if resolveErr != nil {
+			var unavailable Observation
+			fail(&unavailable, resolveErr)
+			items = append(items, Runtime{Kind: kind, Binary: name, Evidence: "path_probe", Status: unavailable.Status, ErrorCode: unavailable.ErrorCode})
+			continue
+		}
+		before, beforeErr := stat(binary)
+		v, status, code := probeVersion(run, binary, kind)
+		after, afterErr := stat(binary)
+		if status == "ok" && beforeErr == nil && afterErr == nil && os.SameFile(before, after) {
+			trusted = append(trusted, trustedProbe{file: after, kind: kind, version: v})
+		}
 		items = append(items, Runtime{Kind: kind, Binary: name, Evidence: "path_probe", Version: v, Status: status, ErrorCode: code})
 	}
 	entries, err := readDir("/proc")
@@ -234,9 +258,17 @@ func (c *Collector) collectRuntimes(o *Observation, run func(string, ...string) 
 			break
 		}
 		r := &Runtime{Kind: kind, Binary: clean, Evidence: "proc_exe", Processes: []int{pid}, Deleted: deleted}
-		// A deleted executable must be observed through the live /proc handle,
-		// not its replacement on disk. No argv or environment is read.
-		r.Version, r.Status, r.ErrorCode = probeVersion(run, procExe, kind)
+		// Reuse only an already-observed PATH version for the same inode/kind.
+		// Unknown and deleted process executables remain visible but unexecuted.
+		r.Status, r.ErrorCode = "error", "unverified_process_executable"
+		if !deleted {
+			for _, probe := range trusted {
+				if probe.kind == kind && os.SameFile(probe.file, info) {
+					r.Version, r.Status, r.ErrorCode = probe.version, "ok", ""
+					break
+				}
+			}
+		}
 		byBinary[key] = append(byBinary[key], processBinary{file: info, runtime: r})
 		instances++
 	}

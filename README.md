@@ -74,7 +74,11 @@ including epochs and revisions. Each section includes its source, observation
 time and status; failure is distinct from a successful empty package list.
 Other operating systems and package managers are reported as unsupported or
 unavailable. Known PHP, FPM, database, web and Redis binaries are probed separately
-from running `/proc` executable evidence. Docker collection uses formatted output
+from running `/proc` executable evidence.
+Running process executables are never executed for version discovery. A running
+binary receives a version only when its inode and runtime kind match an already
+successful explicit PATH probe; deleted or unverified binaries retain process
+evidence with an unknown version and partial coverage. Docker collection uses formatted output
 for container IDs, image IDs, state and repository digests. Restricted process or
 image visibility is explicit. FPM pool configuration, Apache PHP modules and
 versions inside containers remain unverified; a CLI version does not establish

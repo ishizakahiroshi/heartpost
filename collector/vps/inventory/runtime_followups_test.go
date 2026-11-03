@@ -17,7 +17,7 @@ func TestInstalledVersionedPHPDiscoveredWithoutProcessAccess(t *testing.T) {
 	if err := os.WriteFile(dir+"/11", nil, 0600); err != nil {
 		t.Fatal(err)
 	}
-	c := &Collector{goos: "linux", readFile: func(string) ([]byte, error) { return []byte("ID=ubuntu\nVERSION_ID=24.04\n"), nil }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }, readlink: func(string) (string, error) { return "", os.ErrPermission }, run: func(name string, _ ...string) ([]byte, error) {
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, goos: "linux", readFile: func(string) ([]byte, error) { return []byte("ID=ubuntu\nVERSION_ID=24.04\n"), nil }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }, readlink: func(string) (string, error) { return "", os.ErrPermission }, run: func(name string, _ ...string) ([]byte, error) {
 		switch name {
 		case "uname":
 			return []byte("6.1-fixture"), nil

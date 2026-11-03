@@ -17,14 +17,14 @@ import (
 func TestInventoryHonorsCanceledRun(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	c := &Collector{goos: "linux", readFile: func(string) ([]byte, error) { t.Fatal("read after cancellation"); return nil, nil }}
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, goos: "linux", readFile: func(string) ([]byte, error) { t.Fatal("read after cancellation"); return nil, nil }}
 	if _, err := c.CollectContext(ctx, vps.Config{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled run was accepted: %v", err)
 	}
 }
 
 func TestSnapshotPreservesPackageVersionsAndSeparatesFailures(t *testing.T) {
-	c := &Collector{goos: "linux", now: func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, goos: "linux", now: func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) },
 		readFile: func(path string) ([]byte, error) {
 			if path != "/etc/os-release" {
 				t.Fatal(path)
@@ -73,7 +73,7 @@ func TestSourceFailuresRemainExplicitAndDoNotLeakErrors(t *testing.T) {
 		{exec.ErrNotFound, "unavailable", "source_not_found"},
 		{errors.New("synthetic-secret stderr"), "error", "command_failed"},
 	} {
-		c := &Collector{goos: "linux", readFile: func(string) ([]byte, error) { return nil, tc.err }, run: func(string, ...string) ([]byte, error) { return nil, tc.err }}
+		c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, goos: "linux", readFile: func(string) ([]byte, error) { return nil, tc.err }, run: func(string, ...string) ([]byte, error) { return nil, tc.err }}
 		v, _ := c.Collect(vps.Config{})
 		r := v.(*Result)
 		for _, o := range []Observation{r.OS, r.Kernel, r.Packages} {
@@ -98,7 +98,7 @@ func TestMalformedPackagesNeverBecomeCompleteInventory(t *testing.T) {
 	}
 }
 func TestUnsupportedDoesNotExecute(t *testing.T) {
-	c := &Collector{goos: "freebsd", readFile: func(string) ([]byte, error) { t.Fatal("read on unsupported OS"); return nil, nil }, run: func(string, ...string) ([]byte, error) { t.Fatal("execute on unsupported OS"); return nil, nil }}
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, goos: "freebsd", readFile: func(string) ([]byte, error) { t.Fatal("read on unsupported OS"); return nil, nil }, run: func(string, ...string) ([]byte, error) { t.Fatal("execute on unsupported OS"); return nil, nil }}
 	v, _ := c.Collect(vps.Config{})
 	r := v.(*Result)
 	if r.OS.Status != "unsupported" || r.Packages.Status != "unsupported" {

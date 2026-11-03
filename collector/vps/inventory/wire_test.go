@@ -20,7 +20,7 @@ func TestInventoryWireFixture(t *testing.T) {
 	bodies := []json.RawMessage{}
 	for i, version := range []string{"1.0", "2.0"} {
 		at := now.Add(time.Duration(i-1) * time.Minute)
-		c := &Collector{goos: "linux", now: func() time.Time { return at }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(proc) }, readFile: func(string) ([]byte, error) { return []byte("ID=debian\nVERSION_ID=13\n"), nil }, run: func(name string, args ...string) ([]byte, error) {
+		c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, goos: "linux", now: func() time.Time { return at }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(proc) }, readFile: func(string) ([]byte, error) { return []byte("ID=debian\nVERSION_ID=13\n"), nil }, run: func(name string, args ...string) ([]byte, error) {
 			switch name {
 			case "uname":
 				return []byte("6.1-fixture\n"), nil

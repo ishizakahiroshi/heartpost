@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -29,7 +28,7 @@ func syntheticPIDs(count int) []os.DirEntry {
 func TestRuntimeProcScanIsBounded(t *testing.T) {
 	entries := syntheticPIDs(20000)
 	calls := 0
-	c := &Collector{
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil },
 		readDir:  func(string) ([]os.DirEntry, error) { return entries, nil },
 		readlink: func(string) (string, error) { calls++; return "/usr/bin/unrelated", nil },
 	}
@@ -51,14 +50,14 @@ func TestRuntimePIDReportIsBounded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := &Collector{
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil },
 		readDir:  func(string) ([]os.DirEntry, error) { return syntheticPIDs(3000), nil },
 		readlink: func(string) (string, error) { return "/usr/sbin/php-fpm8.3", nil },
 		stat:     func(string) (os.FileInfo, error) { return info, nil },
 	}
 	var o Observation
 	c.collectRuntimes(&o, func(name string, _ ...string) ([]byte, error) {
-		if strings.HasPrefix(name, "/proc/") {
+		if name == "php-fpm" {
 			return []byte("PHP 8.3.6"), nil
 		}
 		return nil, exec.ErrNotFound
@@ -79,7 +78,7 @@ func TestRuntimeScanBoundaryDoesNotClaimTruncationAtExactLimit(t *testing.T) {
 	for _, count := range []int{maxRuntimeProcEntries - 1, maxRuntimeProcEntries, maxRuntimeProcEntries + 1} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			calls := 0
-			c := &Collector{
+			c := &Collector{lookPath: func(name string) (string, error) { return name, nil },
 				readDir:  func(string) ([]os.DirEntry, error) { return syntheticPIDs(count), nil },
 				readlink: func(string) (string, error) { calls++; return "/usr/bin/unrelated", nil },
 			}
@@ -123,14 +122,14 @@ func TestRuntimePIDBoundaryPreservesExactCount(t *testing.T) {
 	}
 	for _, count := range []int{maxRuntimeProcesses, maxRuntimeProcesses + 1} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
-			c := &Collector{
+			c := &Collector{lookPath: func(name string) (string, error) { return name, nil },
 				readDir:  func(string) ([]os.DirEntry, error) { return syntheticPIDs(count), nil },
 				readlink: func(string) (string, error) { return "/usr/sbin/php-fpm8.3", nil },
 				stat:     func(string) (os.FileInfo, error) { return info, nil },
 			}
 			var o Observation
 			c.collectRuntimes(&o, func(name string, _ ...string) ([]byte, error) {
-				if strings.HasPrefix(name, "/proc/") {
+				if name == "php-fpm" {
 					return []byte("PHP 8.3.6"), nil
 				}
 				return nil, exec.ErrNotFound

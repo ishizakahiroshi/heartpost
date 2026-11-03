@@ -19,7 +19,7 @@ func TestLargeInventoryCannotOverflowExistingReportEnvelope(t *testing.T) {
 		fmt.Fprintf(&packages, "sample%05d\t1.0-%s\tamd64\tinstalled\n", i, strings.Repeat("x", 50))
 	}
 	dir := t.TempDir()
-	c := &Collector{goos: "linux", readFile: func(string) ([]byte, error) { return []byte("ID=debian\n"), nil }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }, run: func(name string, _ ...string) ([]byte, error) {
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, goos: "linux", readFile: func(string) ([]byte, error) { return []byte("ID=debian\n"), nil }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }, run: func(name string, _ ...string) ([]byte, error) {
 		switch name {
 		case "uname":
 			return []byte("6.1-fixture"), nil
@@ -49,7 +49,7 @@ func TestInventoryFitsIndentedReportEnvelope(t *testing.T) {
 		fmt.Fprintf(&packages, "sample%05d\t1.0-%s\tamd64\tinstalled\n", i, strings.Repeat("x", 50))
 	}
 	dir := t.TempDir()
-	c := &Collector{goos: "linux", readFile: func(string) ([]byte, error) { return []byte("ID=debian\n"), nil }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }, run: func(name string, _ ...string) ([]byte, error) {
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, goos: "linux", readFile: func(string) ([]byte, error) { return []byte("ID=debian\n"), nil }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }, run: func(name string, _ ...string) ([]byte, error) {
 		switch name {
 		case "uname":
 			return []byte("6.1-fixture"), nil

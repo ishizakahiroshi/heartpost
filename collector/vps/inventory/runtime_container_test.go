@@ -17,7 +17,7 @@ func TestRunningAndPATHVersionsStaySeparate(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	c := &Collector{readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }, readlink: func(path string) (string, error) {
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }, readlink: func(path string) (string, error) {
 		if strings.Contains(path, "13") {
 			return "", fs.ErrPermission
 		}
@@ -38,7 +38,7 @@ func TestRunningAndPATHVersionsStaySeparate(t *testing.T) {
 	}
 	items := o.Value.([]Runtime)
 	last := items[len(items)-1]
-	if items[0].Version != "8.3.1" || last.Version != "8.4.2" || !last.Deleted || last.Kind != "php-fpm" || len(last.Processes) != 2 {
+	if items[0].Version != "8.3.1" || last.Version != "" || last.Status != "error" || !last.Deleted || last.Kind != "php-fpm" || len(last.Processes) != 2 {
 		t.Fatalf("binary evidence lost: %+v", items)
 	}
 	data, _ := json.Marshal(o)
@@ -54,10 +54,15 @@ func TestRunningProcessesWithSamePathAndDifferentExecutables(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	c := &Collector{
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil },
 		readDir:  func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) },
 		readlink: func(string) (string, error) { return "/usr/sbin/php-fpm8.4 (deleted)", nil },
-		stat:     func(p string) (os.FileInfo, error) { return os.Stat(filepath.Join(dir, strings.Split(p, "/")[2])) },
+		stat: func(p string) (os.FileInfo, error) {
+			if !strings.HasPrefix(p, "/proc/") {
+				return nil, os.ErrNotExist
+			}
+			return os.Stat(filepath.Join(dir, strings.Split(p, "/")[2]))
+		},
 	}
 	var o Observation
 	c.collectRuntimes(&o, func(name string, _ ...string) ([]byte, error) {
@@ -71,7 +76,7 @@ func TestRunningProcessesWithSamePathAndDifferentExecutables(t *testing.T) {
 		}
 	})
 	items := o.Value.([]Runtime)
-	if o.Status != "ok" || len(items) != 10 || items[8].Version != "8.4.1" || items[9].Version != "8.4.2" {
+	if o.Status != "partial" || len(items) != 10 || items[8].Version != "" || items[9].Version != "" || items[8].Status != "error" || items[9].Status != "error" {
 		t.Fatalf("distinct executables collapsed: %+v", items)
 	}
 }
@@ -94,7 +99,7 @@ func TestRuntimeBannerValidation(t *testing.T) {
 
 func TestFailedPathProbeIsNotAnInstalledRuntimeRemoval(t *testing.T) {
 	dir := t.TempDir()
-	c := &Collector{readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }}
+	c := &Collector{lookPath: func(name string) (string, error) { return name, nil }, readDir: func(string) ([]os.DirEntry, error) { return os.ReadDir(dir) }}
 	var o Observation
 	c.collectRuntimes(&o, func(name string, _ ...string) ([]byte, error) {
 		if name == "php" {
