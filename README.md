@@ -76,7 +76,7 @@ packages are available for applications that embed these helpers:
 | `github.com/ishizakahiroshi/heartpost/agent` | Shared collection and delivery runner, one-shot or interval scheduling, ordered tasks, multiple targets, optional license verification and token caching. |
 | `github.com/ishizakahiroshi/heartpost/agentlicense` | License signatures, signed tokens, offline licenses, and monitor authentication. The Go package name is `license`. |
 | `github.com/ishizakahiroshi/heartpost/filelock` | Nonblocking file locks on Unix and Windows. `ErrLocked` identifies contention separately from I/O errors. |
-| `github.com/ishizakahiroshi/heartpost/collector/optional` | Explicit configuration and adapters for opt-in audit, backup, fail2ban, honeypot, Nextcloud, extraction, object storage and threat collectors. |
+| `github.com/ishizakahiroshi/heartpost/collector/optional` | Explicit configuration and adapters for opt-in audit, backup, fail2ban, honeypot, Nextcloud (including a record-only deletion log, `nc_deletion`), extraction, object storage and threat collectors. |
 | `github.com/ishizakahiroshi/heartpost/honeypotserver` | Optional HTTP decoy handler and JSONL event output. The caller owns its listener and shutdown. |
 | `github.com/ishizakahiroshi/heartpost/audit` | Audit event wire type shared by log producers and collectors. |
 | `github.com/ishizakahiroshi/heartpost/r2` | Object storage operations statistics helper. |

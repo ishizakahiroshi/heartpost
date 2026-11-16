@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated": {
-    "commit": "17d20d7193e65028f4afc972b597fe3a2279703d",
+    "commit": "1fe0938b795a107b0e104ae42a2538adedc21e0d",
     "dirty": true,
     "tool": "omitnix 0.1.4",
     "partial": false,
@@ -138,8 +138,8 @@
     "discovery_note": ""
   },
   "coverage": {
-    "discovered": 161,
-    "analyzed": 135,
+    "discovered": 163,
+    "analyzed": 137,
     "unresolved": 0,
     "unknown": 0,
     "unclaimed": 26,
@@ -1899,6 +1899,64 @@
     },
     {
       "path": "collector/optional/honeypot/honeypot_test.go",
+      "adapter": "go",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "none_observed",
+          "value": null
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "out_of_scope"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "path": "collector/optional/nc_deletion/nc_deletion.go",
+      "adapter": "go",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "value",
+          "value": "Package nc_deletion は Nextcloud の削除を「あとから原因を追える形」で残す collector。"
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "out_of_scope"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "path": "collector/optional/nc_deletion/nc_deletion_test.go",
       "adapter": "go",
       "status": "analyzed",
       "fields": {

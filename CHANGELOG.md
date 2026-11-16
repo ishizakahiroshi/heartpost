@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.3] - 2026-11-16
+
+### Added
+
+- `collector/optional/nc_deletion`: record-only Nextcloud deletion log. Reads the
+  admin_audit `audit.log` incrementally (rotation-aware) and writes one JSONL line per
+  deletion burst (same user, address and client within 5 minutes) with folder counts,
+  plus maintenance `occ` commands. Group folder trash purges and expiries are not
+  written to `audit.log`, so the collector also diffs `__groupfolders/<id>/trash`
+  listings between runs. The report value carries counts only; user names, addresses
+  and file names stay in the local record file (mode 0600).
+
 ## [0.3.2] - 2026-10-30
 
 ### Added
