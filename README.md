@@ -146,6 +146,14 @@ must still not be group/world-writable, and no directory in its path may be a
 symlink or writable by group or world. An unknown name causes the files to be
 skipped with the reason logged. In Go this is `httpoutcome.VerifyTrustedPathWithOwners`.
 
+Operations are a fixed set (`httpoutcome.Op*`); a name outside it is ignored and the
+request goes out untagged. Each operation has the methods it really uses, and the
+outcome of a non-2xx status is decided by `httpoutcome.Classify` from the operation,
+method and status, never by the producer alone. When the caller cancels a request
+before the response arrives (its context is done), the receipt records status 499,
+the code nginx logs for a client that went away, and the outcome is `expected`.
+Other transport errors record nothing.
+
 Construct a license verifier with `license.NewWithConfig(license.Config{...})`.
 The calling application supplies its signing material and trusted public keys;
 each verifier keeps its own configuration and current token. No shared package

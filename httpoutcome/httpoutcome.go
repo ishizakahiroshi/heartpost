@@ -7,8 +7,11 @@
 // The producer tags a request with WithOperation, wraps its transport with
 // NewTransport and gives it a Sink. The transport adds a fresh random
 // X-HTTP-Operation-ID header, which a reverse proxy can log, and appends one
-// JSONL receipt after the response. Receipts never hold credentials, the raw
-// path, the query or any body.
+// JSONL receipt after the response. When the caller cancels the request (its
+// context is done) before a response arrives, the receipt carries status 499
+// (StatusClientClosedRequest), the code a reverse proxy such as nginx logs for
+// a client that went away. Other transport errors record nothing. Receipts
+// never hold credentials, the raw path, the query or any body.
 package httpoutcome
 
 import (
@@ -33,7 +36,55 @@ const (
 	OpPathExists       = "path_exists"
 	OpFetchFile        = "fetch_file"
 	OpPreviewFile      = "preview_file"
+	// OpUploadFile is a single PUT of a whole file. With If-None-Match: * a 412
+	// means the name is taken, which is part of reserving a free name.
+	OpUploadFile = "upload_file"
+	// OpUploadSession is the MKCOL that opens a chunked-upload session.
+	OpUploadSession = "upload_session"
+	// OpUploadChunk is one PUT of a chunk into an upload session.
+	OpUploadChunk = "upload_chunk"
+	// OpUploadAssemble is the MOVE that assembles an upload session into the
+	// destination. With If-None-Match: * a 412 means the name is taken.
+	OpUploadAssemble = "upload_assemble"
+	// OpDeleteFile is a DELETE of a file; 404 means it is already gone.
+	OpDeleteFile = "delete_file"
+	// OpDeleteUploadSession is the DELETE that drops an upload session.
+	OpDeleteUploadSession = "delete_upload_session"
+	// OpFileID is a PROPFIND that reads the id of a file that should exist.
+	OpFileID = "file_id"
+	// OpListChildren is a PROPFIND that lists a folder that may not exist yet.
+	OpListChildren = "list_children"
 )
+
+// StatusClientClosedRequest is recorded when the caller cancelled the request
+// before a response arrived (nginx logs the same code for a client that left).
+const StatusClientClosedRequest = 499
+
+// operationMethods lists the methods each operation really uses. A receipt for
+// another method is still written, but its non-2xx statuses classify as other.
+var operationMethods = map[string][]string{
+	OpEnsureCollection:    {"MKCOL"},
+	OpPathExists:          {"PROPFIND"},
+	OpFetchFile:           {"GET", "HEAD"},
+	OpPreviewFile:         {"GET"},
+	OpUploadFile:          {"PUT"},
+	OpUploadSession:       {"MKCOL"},
+	OpUploadChunk:         {"PUT"},
+	OpUploadAssemble:      {"MOVE"},
+	OpDeleteFile:          {"DELETE"},
+	OpDeleteUploadSession: {"DELETE"},
+	OpFileID:              {"PROPFIND"},
+	OpListChildren:        {"PROPFIND"},
+}
+
+func operationUses(op, method string) bool {
+	for _, m := range operationMethods[op] {
+		if m == method {
+			return true
+		}
+	}
+	return false
+}
 
 // Outcome values.
 const (
@@ -46,11 +97,8 @@ const (
 type ctxKey struct{}
 
 func allowedOperation(op string) bool {
-	switch op {
-	case OpEnsureCollection, OpPathExists, OpFetchFile, OpPreviewFile:
-		return true
-	}
-	return false
+	_, ok := operationMethods[op]
+	return ok
 }
 
 func allowedOutcome(o string) bool {
@@ -90,19 +138,52 @@ type Receipt struct {
 }
 
 // Classify maps an operation, method and status to an outcome.
+//
+// A 499 (the caller cancelled before a response arrived) is expected for every
+// operation used with its own method: the producer itself gave up, typically
+// because its own client went away. Everything not listed is other.
 func Classify(operation, method string, status int) string {
 	if status >= 200 && status < 300 {
 		return OutcomeSuccess
 	}
-	switch {
-	case operation == OpEnsureCollection && method == "MKCOL" && status == 405:
+	if !operationUses(operation, method) {
+		return OutcomeOther
+	}
+	if status == StatusClientClosedRequest {
 		return OutcomeExpected
-	case operation == OpPathExists && method == "PROPFIND" && status == 404:
-		return OutcomeExpected
-	case operation == OpFetchFile && (method == "GET" || method == "HEAD") && status == 404:
-		return OutcomeIntegrationError
-	case operation == OpPreviewFile && method == "GET" && status == 404:
-		return OutcomeIntegrationError
+	}
+	switch operation {
+	case OpEnsureCollection, OpUploadSession:
+		if status == 405 { // the collection already exists
+			return OutcomeExpected
+		}
+	case OpPathExists, OpListChildren:
+		if status == 404 { // asking whether it exists is the point
+			return OutcomeExpected
+		}
+	case OpFetchFile:
+		if status == 404 || status == 423 { // missing or locked file
+			return OutcomeIntegrationError
+		}
+	case OpPreviewFile, OpFileID:
+		if status == 404 {
+			return OutcomeIntegrationError
+		}
+	case OpUploadFile, OpUploadAssemble:
+		switch status {
+		case 412: // create-only and the name is taken
+			return OutcomeExpected
+		case 404, 409, 423: // parent missing, conflict or locked
+			return OutcomeIntegrationError
+		}
+	case OpUploadChunk:
+		if status == 404 || status == 423 {
+			return OutcomeIntegrationError
+		}
+	case OpDeleteFile, OpDeleteUploadSession:
+		if status == 404 { // already gone
+			return OutcomeExpected
+		}
 	}
 	return OutcomeOther
 }
@@ -230,23 +311,33 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	resp, err := t.base.RoundTrip(out)
 	if err != nil {
+		// Only a request the caller cancelled is recorded (as 499). Any other
+		// transport error leaves no receipt.
+		if req.Context().Err() != nil {
+			t.record(req, id, op, StatusClientClosedRequest)
+		}
 		return resp, err
 	}
-	if t.sink != nil {
-		rec := Receipt{
-			TS:        time.Now().UTC().Format(time.RFC3339),
-			RequestID: id,
-			Method:    req.Method,
-			PathHash:  PathHash(req.URL.EscapedPath()),
-			Status:    resp.StatusCode,
-			Operation: op,
-			Outcome:   Classify(op, req.Method, resp.StatusCode),
-		}
-		if werr := t.sink.Record(rec); werr != nil {
-			t.report(werr)
-		}
-	}
+	t.record(req, id, op, resp.StatusCode)
 	return resp, nil
+}
+
+func (t *Transport) record(req *http.Request, id, op string, status int) {
+	if t.sink == nil {
+		return
+	}
+	rec := Receipt{
+		TS:        time.Now().UTC().Format(time.RFC3339),
+		RequestID: id,
+		Method:    req.Method,
+		PathHash:  PathHash(req.URL.EscapedPath()),
+		Status:    status,
+		Operation: op,
+		Outcome:   Classify(op, req.Method, status),
+	}
+	if werr := t.sink.Record(rec); werr != nil {
+		t.report(werr)
+	}
 }
 
 func (t *Transport) report(err error) {

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated": {
-    "commit": "9a91c5f05abaac157b96c8e6eac041341b1c3aea",
+    "commit": "f969c813b3b57167d6d9ebff98cde71ff8cd57c5",
     "dirty": true,
     "tool": "omitnix 0.1.4",
     "partial": false,
@@ -139,20 +139,39 @@
   },
   "coverage": {
     "discovered": 175,
-    "analyzed": 149,
+    "analyzed": 150,
     "unresolved": 0,
     "unknown": 0,
-    "unclaimed": 26,
+    "unclaimed": 25,
     "skipped_by_config": 0
   },
   "files": [
     {
       "path": ".githooks/pre-commit",
-      "adapter": null,
-      "status": "unclaimed",
-      "fields": {},
-      "unresolved": [],
-      "reason": "no adapter claims '(no extension)'"
+      "adapter": "shell",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "value",
+          "value": "doxguard prerelease opt-in begin"
+        },
+        "authentication": {
+          "state": "out_of_scope"
+        },
+        "authorization": {
+          "state": "out_of_scope"
+        },
+        "reads": {
+          "state": "out_of_scope"
+        },
+        "writes": {
+          "state": "out_of_scope"
+        },
+        "screen_to_api": {
+          "state": "out_of_scope"
+        }
+      },
+      "unresolved": []
     },
     {
       "path": ".github/workflows/gitleaks.yml",

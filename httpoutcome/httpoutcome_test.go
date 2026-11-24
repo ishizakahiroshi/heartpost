@@ -60,6 +60,44 @@ func TestClassify(t *testing.T) {
 		{OpPreviewFile, "GET", 404, OutcomeIntegrationError},
 		{OpPreviewFile, "HEAD", 404, OutcomeOther},
 		{OpPreviewFile, "GET", 403, OutcomeOther},
+		// 423 (locked) on a fetch is the integration's own failure.
+		{OpFetchFile, "GET", 423, OutcomeIntegrationError},
+		{OpFetchFile, "GET", 401, OutcomeOther},
+		// 499: the producer cancelled. Expected only with the operation's own method.
+		{OpFetchFile, "GET", 499, OutcomeExpected},
+		{OpPreviewFile, "GET", 499, OutcomeExpected},
+		{OpPathExists, "PROPFIND", 499, OutcomeExpected},
+		{OpFetchFile, "PROPFIND", 499, OutcomeOther},
+		{OpUploadFile, "GET", 499, OutcomeOther},
+		// Uploads.
+		{OpUploadFile, "PUT", 201, OutcomeSuccess},
+		{OpUploadFile, "PUT", 412, OutcomeExpected},
+		{OpUploadFile, "PUT", 404, OutcomeIntegrationError},
+		{OpUploadFile, "PUT", 409, OutcomeIntegrationError},
+		{OpUploadFile, "PUT", 423, OutcomeIntegrationError},
+		{OpUploadFile, "PUT", 403, OutcomeOther},
+		{OpUploadFile, "MOVE", 412, OutcomeOther},
+		{OpUploadSession, "MKCOL", 405, OutcomeExpected},
+		{OpUploadSession, "MKCOL", 409, OutcomeOther},
+		{OpUploadChunk, "PUT", 404, OutcomeIntegrationError},
+		{OpUploadChunk, "PUT", 423, OutcomeIntegrationError},
+		{OpUploadChunk, "PUT", 412, OutcomeOther},
+		{OpUploadAssemble, "MOVE", 412, OutcomeExpected},
+		{OpUploadAssemble, "MOVE", 423, OutcomeIntegrationError},
+		{OpUploadAssemble, "PUT", 423, OutcomeOther},
+		// Deletes.
+		{OpDeleteFile, "DELETE", 204, OutcomeSuccess},
+		{OpDeleteFile, "DELETE", 404, OutcomeExpected},
+		{OpDeleteFile, "DELETE", 403, OutcomeOther},
+		{OpDeleteFile, "GET", 404, OutcomeOther},
+		{OpDeleteUploadSession, "DELETE", 404, OutcomeExpected},
+		// Lookups.
+		{OpFileID, "PROPFIND", 207, OutcomeSuccess},
+		{OpFileID, "PROPFIND", 404, OutcomeIntegrationError},
+		{OpListChildren, "PROPFIND", 404, OutcomeExpected},
+		{OpListChildren, "PROPFIND", 401, OutcomeOther},
+		// Unknown operation.
+		{"delete_everything", "DELETE", 404, OutcomeOther},
 	}
 	for _, c := range cases {
 		if got := Classify(c.op, c.method, c.status); got != c.want {
@@ -191,6 +229,80 @@ func TestTransportErrorRecordsNothing(t *testing.T) {
 	}
 	if len(sink.recs) != 0 {
 		t.Fatal("recorded on transport error")
+	}
+}
+
+func TestCancelledRequestRecords499(t *testing.T) {
+	sink := &memSink{}
+	ctx, cancel := context.WithCancel(WithOperation(context.Background(), OpFetchFile))
+	var sentID string
+	tr := NewTransport(rtFunc(func(r *http.Request) (*http.Response, error) {
+		sentID = r.Header.Get(HeaderOperationID)
+		cancel()
+		return nil, r.Context().Err()
+	}), sink)
+	req := newReq(t, ctx, "GET", "https://dav.example.test/f%20x.jpg?x=1")
+	if _, err := tr.RoundTrip(req); !errors.Is(err, context.Canceled) {
+		t.Fatalf("err=%v", err)
+	}
+	if len(sink.recs) != 1 {
+		t.Fatalf("records=%d", len(sink.recs))
+	}
+	r := sink.recs[0]
+	if r.Status != StatusClientClosedRequest || r.Outcome != OutcomeExpected || r.Operation != OpFetchFile || r.Method != "GET" {
+		t.Fatalf("bad receipt %+v", r)
+	}
+	if r.RequestID != sentID || r.PathHash != PathHash("/f%20x.jpg") {
+		t.Fatalf("receipt not bound to the sent request: %+v", r)
+	}
+	if _, err := ParseReceiptLine(mustJSON(t, r)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeadlineExceededRecords499(t *testing.T) {
+	sink := &memSink{}
+	ctx, cancel := context.WithTimeout(WithOperation(context.Background(), OpPreviewFile), 0)
+	defer cancel()
+	tr := NewTransport(rtFunc(func(r *http.Request) (*http.Response, error) {
+		<-r.Context().Done()
+		return nil, r.Context().Err()
+	}), sink)
+	if _, err := tr.RoundTrip(newReq(t, ctx, "GET", "https://dav.example.test/p")); err == nil {
+		t.Fatal("expected error")
+	}
+	if len(sink.recs) != 1 || sink.recs[0].Status != StatusClientClosedRequest || sink.recs[0].Outcome != OutcomeExpected {
+		t.Fatalf("recs=%+v", sink.recs)
+	}
+}
+
+func TestErrorWithLiveContextRecordsNothing(t *testing.T) {
+	// A transport error while the caller is still waiting (connection refused,
+	// TLS failure) is not a cancellation and must leave no receipt.
+	sink := &memSink{}
+	tr := NewTransport(rtFunc(func(*http.Request) (*http.Response, error) { return nil, context.Canceled }), sink)
+	req := newReq(t, WithOperation(context.Background(), OpFetchFile), "GET", "https://dav.example.test/x")
+	if _, err := tr.RoundTrip(req); err == nil {
+		t.Fatal("expected error")
+	}
+	if len(sink.recs) != 0 {
+		t.Fatalf("recorded %d receipts for an error the caller did not cause", len(sink.recs))
+	}
+}
+
+func TestNewOperationsAreAllowed(t *testing.T) {
+	for _, op := range []string{OpUploadFile, OpUploadSession, OpUploadChunk, OpUploadAssemble, OpDeleteFile, OpDeleteUploadSession, OpFileID, OpListChildren} {
+		var hdr string
+		tr := NewTransport(rtFunc(func(r *http.Request) (*http.Response, error) {
+			hdr = r.Header.Get(HeaderOperationID)
+			return respond(200)(r)
+		}), &memSink{})
+		if _, err := tr.RoundTrip(newReq(t, WithOperation(context.Background(), op), "GET", "https://dav.example.test/x")); err != nil {
+			t.Fatal(err)
+		}
+		if !IsOperationID(hdr) {
+			t.Fatalf("%s: not tagged", op)
+		}
 	}
 }
 

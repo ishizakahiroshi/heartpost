@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.4] - 2026-11-24
+
+### Added
+
+- `collector/vps/inventory`: opt-in, read-only Linux VPS configuration snapshot
+  (`inventory = true`, disabled by default, never on rental agents): OS identifiers,
+  running kernel, dpkg packages, runtime and container evidence, each with its source,
+  observation time and status. Running process executables are never executed for
+  version discovery. The snapshot does not classify CVEs.
+- `httpoutcome`: operations for uploads, deletes and lookups (`upload_file`,
+  `upload_session`, `upload_chunk`, `upload_assemble`, `delete_file`,
+  `delete_upload_session`, `file_id`, `list_children`), each bound to the methods it
+  uses. Create-only conflicts (412) and "already exists/already gone" answers are
+  `expected`; missing, conflicting or locked targets are `integration_error`.
+
+### Changed
+
+- `httpoutcome`: a request the caller cancelled before a response arrived now writes a
+  receipt with status 499 and outcome `expected` (nginx logs 499 for the same request).
+  Other transport errors still record nothing.
+- `httpoutcome`: `fetch_file` with 423 (locked) is `integration_error`.
+
 ## [0.3.3] - 2026-11-16
 
 ### Added
