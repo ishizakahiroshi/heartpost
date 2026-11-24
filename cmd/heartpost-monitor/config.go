@@ -171,7 +171,7 @@ func Load(path string) (*Config, error) {
 
 	for id, key := range fc.Keys {
 		if !receiver.ValidAgentID(id) {
-			return nil, fmt.Errorf("config: agent_keys: invalid agent id %q (英数字とハイフンのみ・64 文字以内)", id)
+			return nil, fmt.Errorf("config: agent_keys: invalid agent id %q (英数字と「-」のみ・64 文字以内)", id)
 		}
 		if strings.TrimSpace(key) == "" {
 			return nil, fmt.Errorf("config: agent_keys: empty key for %q", id)

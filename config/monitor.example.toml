@@ -52,7 +52,7 @@ timeout = "10s"
 # disabled = true
 
 # agent ごとの共有鍵。agent 側 agent_secrets.toml と同じ値にする。
-# agent id は英数字とハイフンのみ・64 文字以内。
+# agent id は英数字と「-」のみ・64 文字以内。
 [agent_keys]
 web-01 = "REPLACE_WITH_SHARED_SECRET_FOR_WEB_01"
 web-02 = "REPLACE_WITH_SHARED_SECRET_FOR_WEB_02"
