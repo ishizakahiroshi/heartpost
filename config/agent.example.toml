@@ -63,6 +63,7 @@ network = true
 apache_log = true
 # Linux VPS snapshot: OS/kernel, dpkg packages, runtime and container evidence.
 # Disabled by default. Source failures stay explicit; this is not a CVE verdict.
+# With inventory enabled, pass --skip-inventory on ticks that need only a heartbeat.
 inventory = false
 
 [paths]
@@ -90,6 +91,8 @@ log_dir = "/home/<user>/log"
 # only produces noise you learn to ignore.
 #
 # [vps]
+# Also query source package names and versions during opt-in inventory snapshots.
+# inventory_package_sources = false
 # systemd units to report status and memory for. Plain unit names.
 # service_names = ["nginx", "sshd", "cron"]
 #

@@ -17,6 +17,7 @@ var version = "dev"
 
 func main() {
 	configPath := flag.String("config", "", "path to agent.toml (required)")
+	skipInventory := flag.Bool("skip-inventory", false, "omit the optional VPS inventory from this heartbeat")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
@@ -30,7 +31,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	cfg, warnings, err := loadConfig(*configPath)
+	cfg, warnings, err := loadConfig(*configPath, *skipInventory)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
 		os.Exit(1)

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -34,9 +35,11 @@ type Observation struct {
 	Value               any    `json:"value,omitempty"`
 }
 type Package struct {
-	Name         string `json:"name"`
-	Version      string `json:"version"`
-	Architecture string `json:"architecture"`
+	Name          string `json:"name"`
+	Version       string `json:"version"`
+	Architecture  string `json:"architecture"`
+	SourcePackage string `json:"source_package,omitempty"`
+	SourceVersion string `json:"source_version,omitempty"`
 }
 type Result struct {
 	SchemaVersion    int         `json:"schema_version"`
@@ -52,6 +55,9 @@ type Result struct {
 // Collector's zero value uses bounded local reads and commands. The command
 // runner is private so configuration cannot introduce arbitrary shell commands.
 type Collector struct {
+	// IncludePackageSources adds dpkg source identities to installed binary packages.
+	IncludePackageSources bool
+
 	readFile func(string) ([]byte, error)
 	run      func(string, ...string) ([]byte, error)
 	now      func() time.Time
@@ -123,12 +129,21 @@ func (c *Collector) CollectContext(parent context.Context, _ vps.Config) (interf
 	} else {
 		invalid(&r.Kernel)
 	}
-	data, err = run("dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\t${db:Status-Status}\n")
+	format := "-f=${Package}\t${Version}\t${Architecture}\t${db:Status-Status}"
+	if c.IncludePackageSources {
+		format += "\t${source:Package}\t${source:Version}"
+	}
+	data, err = run("dpkg-query", "-W", format+"\n")
 	if err != nil {
 		fail(&r.Packages, err)
-	} else if value, ok := parsePackages(data); ok {
+	} else if value, ok := parsePackages(data, c.IncludePackageSources); ok {
 		r.Packages.Status = "ok"
 		r.Packages.Value = value
+		if c.IncludePackageSources && slices.ContainsFunc(value, func(p Package) bool {
+			return p.SourcePackage == "" || p.SourceVersion == ""
+		}) {
+			r.Packages.Status, r.Packages.ErrorCode = "partial", "package_source_unavailable"
+		}
 	} else {
 		invalid(&r.Packages)
 	}
@@ -256,7 +271,7 @@ func parseOS(data []byte) (map[string]string, bool) {
 	}
 	return out, out["ID"] != ""
 }
-func parsePackages(data []byte) ([]Package, bool) {
+func parsePackages(data []byte, withSources bool) ([]Package, bool) {
 	if len(data) > maxOutput || bytes.IndexByte(data, 0) >= 0 {
 		return nil, false
 	}
@@ -266,12 +281,16 @@ func parsePackages(data []byte) ([]Package, bool) {
 	}
 	out := []Package{}
 	seen := map[string]bool{}
+	columns := 4
+	if withSources {
+		columns = 6
+	}
 	for _, line := range strings.Split(string(data), "\n") {
 		if line == "" {
 			continue
 		}
 		fields := strings.Split(line, "\t")
-		if len(fields) != 4 {
+		if len(fields) != columns {
 			return nil, false
 		}
 		if fields[3] != "installed" {
@@ -281,26 +300,24 @@ func parsePackages(data []byte) ([]Package, bool) {
 			}
 			return nil, false
 		}
-		for i, value := range fields[:3] {
-			if value == "" || len(value) > 512 {
-				return nil, false
-			}
-			for _, ch := range value {
-				valid := ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || strings.ContainsRune(".+-", ch)
-				if i == 1 {
-					valid = valid || ch >= 'A' && ch <= 'Z' || strings.ContainsRune(":~_", ch)
-				}
-				if !valid {
-					return nil, false
-				}
-			}
+		if !validPackageField(fields[0], false) || !validPackageField(fields[1], true) || !validPackageField(fields[2], false) {
+			return nil, false
 		}
 		key := fields[0] + ":" + fields[2]
 		if seen[key] {
 			return nil, false
 		}
 		seen[key] = true
-		out = append(out, Package{Name: fields[0], Version: fields[1], Architecture: fields[2]})
+		p := Package{Name: fields[0], Version: fields[1], Architecture: fields[2]}
+		if withSources {
+			if validPackageField(fields[4], false) {
+				p.SourcePackage = fields[4]
+			}
+			if validPackageField(fields[5], true) {
+				p.SourceVersion = fields[5]
+			}
+		}
+		out = append(out, p)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Name == out[j].Name {
@@ -309,4 +326,20 @@ func parsePackages(data []byte) ([]Package, bool) {
 		return out[i].Name < out[j].Name
 	})
 	return out, true
+}
+
+func validPackageField(value string, version bool) bool {
+	if value == "" || len(value) > 512 {
+		return false
+	}
+	for _, ch := range value {
+		if ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || strings.ContainsRune(".+-", ch) {
+			continue
+		}
+		if version && (ch >= 'A' && ch <= 'Z' || strings.ContainsRune(":~_", ch)) {
+			continue
+		}
+		return false
+	}
+	return true
 }

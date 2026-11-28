@@ -1,12 +1,43 @@
 package main
 
 import (
+	"github.com/ishizakahiroshi/heartpost/agent"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestSkipInventoryAffectsOnlyThisHeartbeat(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := writeFile(t, dir, "agent.toml", "[agent]\nid='sample-vps'\ntype='vps'\n[collectors.jobs]\ninventory=true\n")
+	var otherTasks []string
+	for i, skip := range []bool{false, true, false} {
+		cfg, _, err := loadConfig(cfgPath, skip)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		var others []string
+		for _, task := range agent.DefaultCollectors((*agent.AgentConfig)(cfg)) {
+			if task.Name() == "inventory" {
+				found = true
+			} else {
+				others = append(others, task.Name())
+			}
+		}
+		if found == skip {
+			t.Fatalf("skip=%v inventory present=%v", skip, found)
+		}
+		if i == 0 {
+			otherTasks = others
+		} else if !slices.Equal(otherTasks, others) {
+			t.Fatal("heartbeat collectors changed")
+		}
+	}
+}
 
 func writeFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
@@ -38,7 +69,7 @@ func TestLoadConfigMergesSecrets(t *testing.T) {
 	configPath := writeFile(t, dir, "agent.toml", minimalAgentTOML)
 	writeFile(t, dir, secretsFileName, "[monitor]\napi_key = \"test-key-not-real\"\n")
 
-	cfg, _, err := loadConfig(configPath)
+	cfg, _, err := loadConfig(configPath, false)
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
@@ -55,7 +86,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	dir := t.TempDir()
 	configPath := writeFile(t, dir, "agent.toml", "[agent]\nid = \"agent-example-01\"\n")
 
-	cfg, _, err := loadConfig(configPath)
+	cfg, _, err := loadConfig(configPath, false)
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
@@ -79,7 +110,7 @@ func TestValidateRequiresAPIKeyWhenSending(t *testing.T) {
 	dir := t.TempDir()
 	configPath := writeFile(t, dir, "agent.toml", minimalAgentTOML)
 
-	if _, _, err := loadConfig(configPath); err == nil {
+	if _, _, err := loadConfig(configPath, false); err == nil {
 		t.Fatal("expected error when endpoint is set without api_key")
 	}
 }
@@ -89,7 +120,7 @@ func TestValidateAllowsDryRunWithoutAPIKey(t *testing.T) {
 	dir := t.TempDir()
 	configPath := writeFile(t, dir, "agent.toml", "[agent]\nid = \"agent-example-01\"\n")
 
-	if _, _, err := loadConfig(configPath); err != nil {
+	if _, _, err := loadConfig(configPath, false); err != nil {
 		t.Fatalf("dry-run config should load: %v", err)
 	}
 }
@@ -147,7 +178,7 @@ func TestLoadConfigRejectsWorldReadableSecrets(t *testing.T) {
 		t.Fatalf("chmod: %v", err)
 	}
 
-	_, _, err := loadConfig(configPath)
+	_, _, err := loadConfig(configPath, false)
 	if err == nil {
 		t.Fatal("expected loadConfig to reject a group/world readable secrets file")
 	}
