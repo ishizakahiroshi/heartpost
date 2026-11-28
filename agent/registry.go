@@ -83,7 +83,7 @@ func vpsCollectors(cfg *AgentConfig) []collector.Collector {
 
 	// Inventory is opt-in and is never registered for rental agents.
 	if cfg.Collectors.Jobs["inventory"] {
-		inner = append(inner, &inventory.Collector{})
+		inner = append(inner, &inventory.Collector{IncludePackageSources: cfg.VPS.InventoryPackageSources})
 	}
 
 	out := make([]collector.Collector, 0, len(inner))

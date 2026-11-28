@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated": {
-    "commit": "f969c813b3b57167d6d9ebff98cde71ff8cd57c5",
+    "commit": "5e811e8ea8ccdb744e25bd5db839293320a69d73",
     "dirty": true,
     "tool": "omitnix 0.1.4",
     "partial": false,
@@ -138,8 +138,8 @@
     "discovery_note": ""
   },
   "coverage": {
-    "discovered": 175,
-    "analyzed": 150,
+    "discovered": 177,
+    "analyzed": 152,
     "unresolved": 0,
     "unknown": 0,
     "unclaimed": 25,
@@ -2932,6 +2932,35 @@
       "unresolved": []
     },
     {
+      "path": "collector/vps/inventory/package_source_test.go",
+      "adapter": "go",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "none_observed",
+          "value": null
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "out_of_scope"
+        }
+      },
+      "unresolved": []
+    },
+    {
       "path": "collector/vps/inventory/runtime_bounds_test.go",
       "adapter": "go",
       "status": "analyzed",
@@ -3479,6 +3508,35 @@
     },
     {
       "path": "core/receiver/handler_test.go",
+      "adapter": "go",
+      "status": "analyzed",
+      "fields": {
+        "summary": {
+          "state": "none_observed",
+          "value": null
+        },
+        "authentication": {
+          "state": "not_configured"
+        },
+        "authorization": {
+          "state": "not_configured"
+        },
+        "reads": {
+          "state": "none_observed",
+          "value": []
+        },
+        "writes": {
+          "state": "none_observed",
+          "value": []
+        },
+        "screen_to_api": {
+          "state": "out_of_scope"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "path": "core/receiver/inventory_cadence_test.go",
       "adapter": "go",
       "status": "analyzed",
       "fields": {

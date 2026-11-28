@@ -34,7 +34,7 @@ func TestLargeInventoryCannotOverflowExistingReportEnvelope(t *testing.T) {
 		t.Fatal(err)
 	}
 	snapshot := value.(*Result)
-	if snapshot.Packages.Status != "error" || snapshot.Packages.ErrorCode != "report_size_limit" || snapshot.Packages.Value != nil {
+	if snapshot.Packages.Status != "error" || snapshot.Packages.ErrorCode != "report_size_limit" || snapshot.Packages.Value != nil || snapshot.Packages.OmittedItems != 12000 {
 		t.Fatal("large snapshot became a partial successful package list")
 	}
 	encoded, err := json.Marshal(snapshot)
@@ -67,5 +67,30 @@ func TestInventoryFitsIndentedReportEnvelope(t *testing.T) {
 	body, err := json.MarshalIndent(report.Build("alpha-vps-fixture", "fixture", "vps", time.Now(), time.UTC, map[string]json.RawMessage{"inventory": raw}), "", "  ")
 	if err != nil || len(body) > 768<<10 {
 		t.Fatalf("indented inventory exhausted envelope budget: bytes=%d err=%v", len(body), err)
+	}
+}
+
+func TestSizeLimitKeepsIndependentObservations(t *testing.T) {
+	containers := make([]Container, 128)
+	for i := range containers {
+		containers[i] = Container{ID: fmt.Sprintf("%064x", i), ImageID: "sha256:" + strings.Repeat("a", 64), State: "running", DigestStatus: "ok"}
+		if i == 0 {
+			containers[i].DigestStatus = "unavailable"
+			continue
+		}
+		for j := 0; j < 72; j++ {
+			containers[i].Digests = append(containers[i].Digests, fmt.Sprintf("example.invalid/image-%03d@sha256:%064x", j, j))
+		}
+	}
+	r := Result{
+		Packages:   Observation{Status: "permission_denied", ErrorCode: "permission_denied"},
+		Runtimes:   Observation{Status: "ok", Value: []Runtime{}},
+		Containers: Observation{Status: "partial", ErrorCode: "image_digest_unavailable", Value: containers},
+	}
+	limitSnapshotSize(&r)
+	if r.Packages.ErrorCode != "permission_denied" || r.Runtimes.Status != "ok" ||
+		r.Containers.CollectionStatus != "partial" || r.Containers.CollectionErrorCode != "image_digest_unavailable" ||
+		r.Containers.ErrorCode != "report_size_limit" || r.Containers.OmittedItems != len(containers) {
+		t.Fatal("overflow must preserve independent evidence")
 	}
 }

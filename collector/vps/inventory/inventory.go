@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -24,16 +25,21 @@ const maxOutput = 8 << 20
 // Observation never includes command stderr or environment values. Unknown
 // provenance and package installation times are omitted, not guessed.
 type Observation struct {
-	Status     string `json:"status"`
-	Source     string `json:"source"`
-	ObservedAt string `json:"observed_at"`
-	ErrorCode  string `json:"error_code,omitempty"`
-	Value      any    `json:"value,omitempty"`
+	CollectionStatus    string `json:"collection_status,omitempty"`
+	CollectionErrorCode string `json:"collection_error_code,omitempty"`
+	OmittedItems        int    `json:"omitted_items,omitempty"`
+	Status              string `json:"status"`
+	Source              string `json:"source"`
+	ObservedAt          string `json:"observed_at"`
+	ErrorCode           string `json:"error_code,omitempty"`
+	Value               any    `json:"value,omitempty"`
 }
 type Package struct {
-	Name         string `json:"name"`
-	Version      string `json:"version"`
-	Architecture string `json:"architecture"`
+	Name          string `json:"name"`
+	Version       string `json:"version"`
+	Architecture  string `json:"architecture"`
+	SourcePackage string `json:"source_package,omitempty"`
+	SourceVersion string `json:"source_version,omitempty"`
 }
 type Result struct {
 	SchemaVersion    int         `json:"schema_version"`
@@ -49,6 +55,9 @@ type Result struct {
 // Collector's zero value uses bounded local reads and commands. The command
 // runner is private so configuration cannot introduce arbitrary shell commands.
 type Collector struct {
+	// IncludePackageSources adds dpkg source identities to installed binary packages.
+	IncludePackageSources bool
+
 	readFile func(string) ([]byte, error)
 	run      func(string, ...string) ([]byte, error)
 	now      func() time.Time
@@ -120,12 +129,21 @@ func (c *Collector) CollectContext(parent context.Context, _ vps.Config) (interf
 	} else {
 		invalid(&r.Kernel)
 	}
-	data, err = run("dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\t${db:Status-Status}\n")
+	format := "-f=${Package}\t${Version}\t${Architecture}\t${db:Status-Status}"
+	if c.IncludePackageSources {
+		format += "\t${source:Package}\t${source:Version}"
+	}
+	data, err = run("dpkg-query", "-W", format+"\n")
 	if err != nil {
 		fail(&r.Packages, err)
-	} else if value, ok := parsePackages(data); ok {
+	} else if value, ok := parsePackages(data, c.IncludePackageSources); ok {
 		r.Packages.Status = "ok"
 		r.Packages.Value = value
+		if c.IncludePackageSources && slices.ContainsFunc(value, func(p Package) bool {
+			return p.SourcePackage == "" || p.SourceVersion == ""
+		}) {
+			r.Packages.Status, r.Packages.ErrorCode = "partial", "package_source_unavailable"
+		}
 	} else {
 		invalid(&r.Packages)
 	}
@@ -134,6 +152,11 @@ func (c *Collector) CollectContext(parent context.Context, _ vps.Config) (interf
 	installed, _ := r.Packages.Value.([]Package)
 	c.collectRuntimes(&r.Runtimes, run, installed)
 	collectContainers(&r.Containers, run)
+	limitSnapshotSize(r)
+	return r, nil
+}
+
+func limitSnapshotSize(r *Result) {
 	// Measure nested, indented JSON as used by the agent, rather than compact
 	// inventory JSON: indentation can add hundreds of kilobytes. Reserve at
 	// least 256 KiB for the remaining collectors in the 1 MiB envelope.
@@ -141,19 +164,42 @@ func (c *Collector) CollectContext(parent context.Context, _ vps.Config) (interf
 		encoded, _ := json.MarshalIndent(map[string]any{"collectors": map[string]any{"inventory": r}}, "", "  ")
 		return len(encoded) + 1024 // report identity and framing allowance
 	}
-	if encodedSize() > 768<<10 {
-		r.Packages.Status = "error"
-		r.Packages.ErrorCode = "report_size_limit"
-		r.Packages.Value = nil
-		if encodedSize() > 768<<10 {
-			for _, o := range []*Observation{&r.Runtimes, &r.Containers} {
-				o.Status = "error"
-				o.ErrorCode = "report_size_limit"
-				o.Value = nil
-			}
+	if encodedSize() <= 768<<10 {
+		return
+	}
+	// Keep smaller observations and existing errors when one list is too big.
+	type candidate struct {
+		observation  *Observation
+		items, bytes int
+	}
+	var lists []candidate
+	for _, o := range []*Observation{&r.Packages, &r.Runtimes, &r.Containers} {
+		var count int
+		switch items := o.Value.(type) {
+		case []Package:
+			count = len(items)
+		case []Runtime:
+			count = len(items)
+		case []Container:
+			count = len(items)
+		}
+		if count > 0 {
+			data, _ := json.MarshalIndent(o.Value, "", "  ")
+			lists = append(lists, candidate{o, count, len(data)})
 		}
 	}
-	return r, nil
+	sort.SliceStable(lists, func(i, j int) bool { return lists[i].bytes > lists[j].bytes })
+	for _, list := range lists {
+		o := list.observation
+		if o.Status != "ok" {
+			o.CollectionStatus, o.CollectionErrorCode = o.Status, o.ErrorCode
+		}
+		o.Status, o.ErrorCode = "error", "report_size_limit"
+		o.OmittedItems, o.Value = list.items, nil
+		if encodedSize() <= 768<<10 {
+			break
+		}
+	}
 }
 func invalid(o *Observation) { o.Status = "error"; o.ErrorCode = "invalid_output" }
 func fail(o *Observation, err error) {
@@ -225,7 +271,7 @@ func parseOS(data []byte) (map[string]string, bool) {
 	}
 	return out, out["ID"] != ""
 }
-func parsePackages(data []byte) ([]Package, bool) {
+func parsePackages(data []byte, withSources bool) ([]Package, bool) {
 	if len(data) > maxOutput || bytes.IndexByte(data, 0) >= 0 {
 		return nil, false
 	}
@@ -235,12 +281,16 @@ func parsePackages(data []byte) ([]Package, bool) {
 	}
 	out := []Package{}
 	seen := map[string]bool{}
+	columns := 4
+	if withSources {
+		columns = 6
+	}
 	for _, line := range strings.Split(string(data), "\n") {
 		if line == "" {
 			continue
 		}
 		fields := strings.Split(line, "\t")
-		if len(fields) != 4 {
+		if len(fields) != columns {
 			return nil, false
 		}
 		if fields[3] != "installed" {
@@ -250,26 +300,24 @@ func parsePackages(data []byte) ([]Package, bool) {
 			}
 			return nil, false
 		}
-		for i, value := range fields[:3] {
-			if value == "" || len(value) > 512 {
-				return nil, false
-			}
-			for _, ch := range value {
-				valid := ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || strings.ContainsRune(".+-", ch)
-				if i == 1 {
-					valid = valid || ch >= 'A' && ch <= 'Z' || strings.ContainsRune(":~_", ch)
-				}
-				if !valid {
-					return nil, false
-				}
-			}
+		if !validPackageField(fields[0], false) || !validPackageField(fields[1], true) || !validPackageField(fields[2], false) {
+			return nil, false
 		}
 		key := fields[0] + ":" + fields[2]
 		if seen[key] {
 			return nil, false
 		}
 		seen[key] = true
-		out = append(out, Package{Name: fields[0], Version: fields[1], Architecture: fields[2]})
+		p := Package{Name: fields[0], Version: fields[1], Architecture: fields[2]}
+		if withSources {
+			if validPackageField(fields[4], false) {
+				p.SourcePackage = fields[4]
+			}
+			if validPackageField(fields[5], true) {
+				p.SourceVersion = fields[5]
+			}
+		}
+		out = append(out, p)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Name == out[j].Name {
@@ -278,4 +326,20 @@ func parsePackages(data []byte) ([]Package, bool) {
 		return out[i].Name < out[j].Name
 	})
 	return out, true
+}
+
+func validPackageField(value string, version bool) bool {
+	if value == "" || len(value) > 512 {
+		return false
+	}
+	for _, ch := range value {
+		if ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || strings.ContainsRune(".+-", ch) {
+			continue
+		}
+		if version && (ch >= 'A' && ch <= 'Z' || strings.ContainsRune(":~_", ch)) {
+			continue
+		}
+		return false
+	}
+	return true
 }

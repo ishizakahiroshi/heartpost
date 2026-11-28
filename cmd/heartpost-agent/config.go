@@ -9,8 +9,11 @@ const secretsFileName = "agent_secrets.toml"
 
 type AgentConfig agent.AgentConfig
 
-func loadConfig(path string) (*AgentConfig, []string, error) {
+func loadConfig(path string, skipInventory bool) (*AgentConfig, []string, error) {
 	cfg, warnings, err := agent.LoadConfig(path)
+	if err == nil && skipInventory && cfg.Collectors.Jobs["inventory"] {
+		cfg.Collectors.Jobs["inventory"] = false
+	}
 	return (*AgentConfig)(cfg), warnings, err
 }
 func checkSecretsPerm(path string, mode fs.FileMode, goos string) (string, error) {

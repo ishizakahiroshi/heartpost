@@ -89,11 +89,11 @@ func TestSourceFailuresRemainExplicitAndDoNotLeakErrors(t *testing.T) {
 }
 func TestMalformedPackagesNeverBecomeCompleteInventory(t *testing.T) {
 	for _, data := range []string{"alpha\t1\tamd64\tinstalled", "alpha\t1\tamd64\tinstalled\nsecret", "alpha\t1\tamd64\tunknown\n", "alpha\t\tamd64\tinstalled\n", "alpha\t1\tamd64\tinstalled\nalpha\t1\tamd64\tinstalled\n", strings.Repeat("x", maxOutput+1)} {
-		if _, ok := parsePackages([]byte(data)); ok {
+		if _, ok := parsePackages([]byte(data), false); ok {
 			t.Fatal("accepted invalid/truncated inventory")
 		}
 	}
-	if got, ok := parsePackages(nil); !ok || got == nil || len(got) != 0 {
+	if got, ok := parsePackages(nil, false); !ok || got == nil || len(got) != 0 {
 		t.Fatal("valid empty result must be an array")
 	}
 }

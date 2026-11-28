@@ -72,6 +72,13 @@ Linux VPS agents can opt into a read-only configuration snapshot by setting
 running kernel and installed dpkg packages, preserving distribution versions
 including epochs and revisions. Each section includes its source, observation
 time and status; failure is distinct from a successful empty package list.
+The package fields `name`, `version` and `architecture` describe the installed
+binary. To also record its Debian source package, set
+`inventory_package_sources = true` under `[vps]` on an inventory-enabled agent.
+The same dpkg query then adds `source_package` and `source_version` from
+`source:Package` and `source:Version`. Missing source fields are omitted and
+the packages observation is marked `partial`; binary versions remain available.
+Source package identity does not identify an APT repository, mirror or vendor.
 Other operating systems and package managers are reported as unsupported or
 unavailable. Known PHP, FPM, database, web and Redis binaries are probed separately
 from running `/proc` executable evidence.
@@ -83,11 +90,26 @@ for container IDs, image IDs, state and repository digests. Restricted process o
 image visibility is explicit. FPM pool configuration, Apache PHP modules and
 versions inside containers remain unverified; a CLI version does not establish
 the web runtime's version. The snapshot does not classify CVEs.
-The collector is disabled by default and never runs on rental agents.
-  Enabling it on a frequently scheduled agent sends and stores a complete package
-  snapshot on every run; assess network and retention costs before enabling it.
-  Large snapshots can be rejected with `report_size_limit` rather than silently
-  truncated. Other collectors also consume space in the receiver's report limit.
+The collector is disabled by default and runs only on VPS agents. With inventory
+enabled, the usual invocation collects a fresh snapshot. To send it less often,
+use the same configuration and agent ID for both scheduled invocations:
+
+- On ordinary heartbeat ticks, run `heartpost-agent --config agent.toml --skip-inventory`.
+- On the chosen inventory tick (for example, once per day), use
+  `heartpost-agent --config agent.toml` in place of the ordinary invocation.
+  Running that command again requests a fresh full collection.
+
+The receiver appends each report to its daily JSONL file and advances liveness
+on every heartbeat. Consumers can restore their inventory from the latest
+retained report containing the `inventory` key. A heartbeat that omits that key
+leaves the previous observation and its `observed_at` unchanged. If retention
+has removed the last inventory, collect a fresh snapshot. Each inventory is
+self-contained, so resynchronization requires no hash or delta history.
+
+When a list is omitted to fit the report, `omitted_items` gives the number of
+collected entries and `report_size_limit` identifies the cause. Inspect each
+observation's status and coverage before using its value. Other collectors
+also consume space in the receiver's report limit.
 
 Other monitoring applications can reuse the collectors, report types, and report
 signatures without running the heartpost commands. The following additional
