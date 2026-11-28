@@ -24,11 +24,14 @@ const maxOutput = 8 << 20
 // Observation never includes command stderr or environment values. Unknown
 // provenance and package installation times are omitted, not guessed.
 type Observation struct {
-	Status     string `json:"status"`
-	Source     string `json:"source"`
-	ObservedAt string `json:"observed_at"`
-	ErrorCode  string `json:"error_code,omitempty"`
-	Value      any    `json:"value,omitempty"`
+	CollectionStatus    string `json:"collection_status,omitempty"`
+	CollectionErrorCode string `json:"collection_error_code,omitempty"`
+	OmittedItems        int    `json:"omitted_items,omitempty"`
+	Status              string `json:"status"`
+	Source              string `json:"source"`
+	ObservedAt          string `json:"observed_at"`
+	ErrorCode           string `json:"error_code,omitempty"`
+	Value               any    `json:"value,omitempty"`
 }
 type Package struct {
 	Name         string `json:"name"`
@@ -134,6 +137,11 @@ func (c *Collector) CollectContext(parent context.Context, _ vps.Config) (interf
 	installed, _ := r.Packages.Value.([]Package)
 	c.collectRuntimes(&r.Runtimes, run, installed)
 	collectContainers(&r.Containers, run)
+	limitSnapshotSize(r)
+	return r, nil
+}
+
+func limitSnapshotSize(r *Result) {
 	// Measure nested, indented JSON as used by the agent, rather than compact
 	// inventory JSON: indentation can add hundreds of kilobytes. Reserve at
 	// least 256 KiB for the remaining collectors in the 1 MiB envelope.
@@ -141,19 +149,42 @@ func (c *Collector) CollectContext(parent context.Context, _ vps.Config) (interf
 		encoded, _ := json.MarshalIndent(map[string]any{"collectors": map[string]any{"inventory": r}}, "", "  ")
 		return len(encoded) + 1024 // report identity and framing allowance
 	}
-	if encodedSize() > 768<<10 {
-		r.Packages.Status = "error"
-		r.Packages.ErrorCode = "report_size_limit"
-		r.Packages.Value = nil
-		if encodedSize() > 768<<10 {
-			for _, o := range []*Observation{&r.Runtimes, &r.Containers} {
-				o.Status = "error"
-				o.ErrorCode = "report_size_limit"
-				o.Value = nil
-			}
+	if encodedSize() <= 768<<10 {
+		return
+	}
+	// Keep smaller observations and existing errors when one list is too big.
+	type candidate struct {
+		observation  *Observation
+		items, bytes int
+	}
+	var lists []candidate
+	for _, o := range []*Observation{&r.Packages, &r.Runtimes, &r.Containers} {
+		var count int
+		switch items := o.Value.(type) {
+		case []Package:
+			count = len(items)
+		case []Runtime:
+			count = len(items)
+		case []Container:
+			count = len(items)
+		}
+		if count > 0 {
+			data, _ := json.MarshalIndent(o.Value, "", "  ")
+			lists = append(lists, candidate{o, count, len(data)})
 		}
 	}
-	return r, nil
+	sort.SliceStable(lists, func(i, j int) bool { return lists[i].bytes > lists[j].bytes })
+	for _, list := range lists {
+		o := list.observation
+		if o.Status != "ok" {
+			o.CollectionStatus, o.CollectionErrorCode = o.Status, o.ErrorCode
+		}
+		o.Status, o.ErrorCode = "error", "report_size_limit"
+		o.OmittedItems, o.Value = list.items, nil
+		if encodedSize() <= 768<<10 {
+			break
+		}
+	}
 }
 func invalid(o *Observation) { o.Status = "error"; o.ErrorCode = "invalid_output" }
 func fail(o *Observation, err error) {

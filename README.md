@@ -86,7 +86,7 @@ the web runtime's version. The snapshot does not classify CVEs.
 The collector is disabled by default and never runs on rental agents.
   Enabling it on a frequently scheduled agent sends and stores a complete package
   snapshot on every run; assess network and retention costs before enabling it.
-  Large snapshots can be rejected with `report_size_limit` rather than silently
+  When a list is omitted to fit the report, `omitted_items` gives the number of collected entries and `report_size_limit` identifies the cause. Smaller observations and independent collection errors are retained where possible. Large snapshots are not silently
   truncated. Other collectors also consume space in the receiver's report limit.
 
 Other monitoring applications can reuse the collectors, report types, and report
